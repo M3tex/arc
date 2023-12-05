@@ -1,0 +1,6 @@
+PROGRAMME()
+VAR toto
+DEBUT
+	# Ceci est un test
+	5 * (192 + x - y) % 7 ET NON (x < y)
+FIN

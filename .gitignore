@@ -1,0 +1,9 @@
+.vscode
+arc
+build
+src/parser.c
+src/lexer.c
+include/parser.h
+*.ram
+*.png
+*.dot

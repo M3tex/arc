@@ -1,0 +1,7 @@
+PROGRAMME()
+DEBUT
+    # Test des expressions arithmétiques sans variables
+    /* Également un commentaire (et // aussi) */
+    5 * (3 + 1) / (10 - 8)
+    # NON 10
+FIN 

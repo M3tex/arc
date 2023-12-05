@@ -1,0 +1,11 @@
+PROGRAMME()
+VAR toto, titi, tutu
+VAR tata
+VAR tete, tata
+DEBUT
+	a <- 15
+	toto <- 12
+	titi <- 5
+	tutu <- 2*(a-b) + titi - toto
+	toto <- (tutu < 0)
+FIN
