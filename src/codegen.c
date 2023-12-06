@@ -93,6 +93,10 @@ void codegen(ast *t)
         codegen(t->list_instr.instr);
         codegen(t->list_instr.next);
         break;
+    case prog_type:
+        codegen(t->root.list_decl);
+        codegen(t->root.main_prog);
+        break;
     default:
         break;
     }

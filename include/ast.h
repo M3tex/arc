@@ -18,7 +18,8 @@ typedef struct ast ast;
 
 
 typedef enum {
-    nb_type, b_op_type, u_op_type, id_type, affect_type, instr_type
+    nb_type, b_op_type, u_op_type, id_type, affect_type, instr_type,
+    var_decla_type, var_init_type, prog_type, func_type
 } node_type;
 
 
@@ -57,6 +58,34 @@ typedef struct {
 } affect_node;
 
 
+typedef struct {
+    ast *init_var;
+    ast *next;
+} var_decla_node;
+
+
+typedef struct {
+    ast *id;
+    ast *expr;
+    ast *next;
+} var_init_node;
+
+
+typedef struct {
+    ast *list_decl;
+    ast *main_prog;
+} prog_root;
+
+
+typedef struct {
+
+} func_node;
+
+// typedef struct {
+
+// } decla_func_node;
+
+
 typedef struct ast {
     node_type type;
     int mem_adr;
@@ -68,6 +97,9 @@ typedef struct ast {
         u_op_node u_op;
         affect_node affect;
         instr_node list_instr;
+        var_decla_node list_var_decla;
+        var_init_node var_init;
+        prog_root root;
     };
 } ast;
 
@@ -79,6 +111,10 @@ ast *create_b_op_node(int op, ast *m1, ast *m2);
 ast *create_u_op_node(int op, ast *c);
 ast *create_instr_node(ast *instr, ast *l);
 ast *create_affect_node(ast *id, ast *expr);
+ast *create_var_decla_node(ast *var_init, ast *l);
+ast *create_var_init_node(char *id, ast *expr, ast *next);
+
+ast *create_prog_root(ast *list_decl, ast *m_prog);
 
 void free_ast(ast *t);
 

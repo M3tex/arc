@@ -1,7 +1,7 @@
-PROGRAMME()
 VAR toto, titi, tutu
 VAR tata
-VAR tete, tata
+VAR tete, tata, b <- 10, a
+PROGRAMME()
 DEBUT
 	a <- 15
 	toto <- 12

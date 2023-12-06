@@ -6,6 +6,7 @@
 #include "symbol_table.h"
 
 extern symb_table table;
+extern char current_ctx[32];
 
 void semantic(ast *t);
 void semantic_nb(ast *t);

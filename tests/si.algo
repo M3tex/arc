@@ -1,0 +1,11 @@
+VAR i <- 0
+
+PROGRAMME()
+DEBUT
+    // Test de la structure SI ALORS SINON
+    SI i = 0 ALORS 
+        i <- 1
+    SINON
+        i <- 0
+    FSI
+FIN 

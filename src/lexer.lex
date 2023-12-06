@@ -44,11 +44,20 @@ COMM     ([#]+.*|\/\/.*|\/\*.*\*\/)
 "DEBUT"         {return DEBUT;}
 "FIN"           {return FIN;}
 "VAR"           {return VAR;}
-"<-"            {return AFFECT;}
+"<-"            {return AFFECT_SYMB;}
 
 "NON"           {return NON;}
 "ET"            {return ET;}
 "OU"            {return OU;}
+
+"TQ"            {return TQ;}
+"FAIRE"         {return FAIRE;}
+"FTQ"           {return FTQ;}
+
+"SI"            {return SI;}
+"ALORS"         {return ALORS;}
+"SINON"         {return SINON;}
+"FSI"           {return FSI;}
 
 "!="            {return DIFF;}
 "<="            {return LE;}

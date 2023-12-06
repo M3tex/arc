@@ -130,6 +130,39 @@ ast *create_affect_node(ast *id, ast *expr)
 }
 
 
+
+ast *create_var_decla_node(ast *var_init, ast *l)
+{
+    ast *t = init_ast(var_decla_type);
+    t->list_var_decla.init_var = var_init;
+    t->list_var_decla.next = l;
+
+    return t;
+}
+
+
+
+ast *create_var_init_node(char *id, ast *expr, ast *next)
+{
+    ast *t = init_ast(var_init_type);
+    t->var_init.expr = expr;
+    t->var_init.id = create_id_leaf(id);
+    t->var_init.next = next;
+
+    return t;
+}
+
+
+ast *create_prog_root(ast *list_decl, ast *m_prog)
+{
+    ast *t = init_ast(prog_type);
+    t->root.list_decl = list_decl;
+    t->root.main_prog = m_prog;
+
+    return t;
+}
+
+
 /**
  * @brief Libère la mémoire utilisée par l'ASA.
  * 
@@ -229,7 +262,20 @@ int ast_to_dot(ast *t, FILE *fp)
     case instr_type:
         ast_to_dot(t->list_instr.instr, fp);
         ast_to_dot(t->list_instr.next, fp);
-
+        break;
+    case var_decla_type:
+        ast_to_dot(t->list_var_decla.init_var, fp);
+        ast_to_dot(t->list_var_decla.next, fp);
+        break;
+    case var_init_type:
+        ast_to_dot(t->var_init.id, fp);
+        ast_to_dot(t->var_init.expr, fp);
+        ast_to_dot(t->var_init.next, fp);
+        break;
+    case prog_type:
+        ast_to_dot(t->root.list_decl, fp);
+        ast_to_dot(t->root.main_prog, fp);
+        break;
     default:
         break;
     }

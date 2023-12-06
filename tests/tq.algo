@@ -1,0 +1,9 @@
+VAR i <- 0
+
+PROGRAMME()
+DEBUT
+    // Test de la boucle tant que
+    TQ i <= 10 FAIRE
+        i <- i + 1
+    FTQ
+FIN 
