@@ -1,0 +1,53 @@
+# Librairie standard: math
+
+
+/* Calcule x^n */
+ALGO puissance(x, n)
+VAR y <- x
+DEBUT
+    SI n = 0 ALORS
+        RENVOYER 1
+    FSI
+
+    TQ n != 0 FAIRE
+        y = y * y
+        SI n % 2 = 1 ALORS
+            y = y * x
+        FSI
+    FTQ
+
+    RENVOYER y
+FIN
+
+
+/* Calcule x^n % m */
+ALGO puissance_mod(x, n, m)
+VAR y <- x
+DEBUT
+    SI n = 0 ALORS
+        RENVOYER 1
+    FSI
+
+    TQ n != 0 FAIRE
+        y = y * y % m
+        SI n % 2 = 1 ALORS
+            y = y * x % m
+        FSI
+    FTQ
+
+    RENVOYER y
+FIN
+
+
+/* Calcule n! */
+ALGO factorielle(n)
+DEBUT
+    SI n = 1 ALORS
+        RENVOYER 1
+    SINON
+        RENVOYER n * factorielle(n - 1)
+    FSI
+FIN
+
+
+# ToDo: PGCD, PPCM, IS PRIME, etc.
