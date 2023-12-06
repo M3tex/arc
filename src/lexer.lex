@@ -32,19 +32,21 @@ IDENT    [_a-zA-Z]+[_a-zA-Z0-9]*
 COMM     ([#]+.*|\/\/.*|\/\*.*\*\/)
 
 %%
-
+{COMM}          {/* Ignore les commentaires */}
 {NOMBRE}        {yylval.nb = atoi(yytext); return NB;}
 
 
-[-*+/=%<>)(\n,] {return yytext[0];}
+[-*+/=%<>)(;\n,] {return yytext[0];}
 [ \t]           {/* Ignore les caractères blancs */}
-{COMM}          {/* Ignore les commentaires */}
+
 
 "PROGRAMME"     {return PROGRAMME;}
 "DEBUT"         {return DEBUT;}
 "FIN"           {return FIN;}
 "VAR"           {return VAR;}
 "<-"            {return AFFECT_SYMB;}
+
+"ALGO"          {return ALGO;}
 
 "NON"           {return NON;}
 "ET"            {return ET;}

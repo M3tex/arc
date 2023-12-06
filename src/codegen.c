@@ -40,7 +40,7 @@ void add_instr(instr_ram instr, char t_adr, int adr)
 
     char *instr_str = instr_to_str[instr];
     char buff[32];
-    int offset = 10 - (strlen(instr_str));
+    int offset = 13 - (strlen(instr_str));
 
     switch (instr)
     {
@@ -48,7 +48,7 @@ void add_instr(instr_ram instr, char t_adr, int adr)
     case WRITE:
     case STOP:
     case NOP:
-        sprintf(buff, "%s %%-%dc;\n", instr_str, offset);
+        sprintf(buff, "%s %%-%dc;\n", instr_str, offset + 1);
         fprintf(fp_out, buff, ' ');
         break;
     
@@ -96,6 +96,12 @@ void codegen(ast *t)
     case prog_type:
         codegen(t->root.list_decl);
         codegen(t->root.main_prog);
+        break;
+    case func_type:
+        codegen(t->function.id);
+        codegen(t->function.list_decl);
+        codegen(t->function.list_instr);
+        codegen(t->function.params);
         break;
     default:
         break;

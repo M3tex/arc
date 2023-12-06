@@ -3,7 +3,7 @@
 
 
 #include <stdlib.h>
-
+#include <stdio.h>
 
 /* 
  * Contient toutes les fonctions / types nécessaires à la gestion de
@@ -13,13 +13,16 @@
 #define ID_MAX_SIZE 32
 
 
+extern char *src;
+
 /* Besoin pour les noeuds */
 typedef struct ast ast;
 
 
 typedef enum {
     nb_type, b_op_type, u_op_type, id_type, affect_type, instr_type,
-    var_decla_type, var_init_type, prog_type, func_type
+    decla_type, var_init_type, prog_type, func_type, while_type,
+    if_type
 } node_type;
 
 
@@ -59,9 +62,9 @@ typedef struct {
 
 
 typedef struct {
-    ast *init_var;
+    ast *decla;
     ast *next;
-} var_decla_node;
+} decla_node;
 
 
 typedef struct {
@@ -78,12 +81,25 @@ typedef struct {
 
 
 typedef struct {
-
+    ast *id;
+    ast *params;
+    ast *list_decl;
+    ast *list_instr;
 } func_node;
 
-// typedef struct {
 
-// } decla_func_node;
+typedef struct {
+    ast *expr;
+    ast *list_instr;
+} while_node;
+
+
+typedef struct {
+    ast *expr;
+    ast *list_instr1;
+    ast *list_instr2;
+} if_node;
+
 
 
 typedef struct ast {
@@ -97,9 +113,12 @@ typedef struct ast {
         u_op_node u_op;
         affect_node affect;
         instr_node list_instr;
-        var_decla_node list_var_decla;
+        decla_node decla_list;
         var_init_node var_init;
         prog_root root;
+        func_node function;
+        while_node while_n;
+        if_node if_n;
     };
 } ast;
 
@@ -111,13 +130,17 @@ ast *create_b_op_node(int op, ast *m1, ast *m2);
 ast *create_u_op_node(int op, ast *c);
 ast *create_instr_node(ast *instr, ast *l);
 ast *create_affect_node(ast *id, ast *expr);
-ast *create_var_decla_node(ast *var_init, ast *l);
+ast *create_decla_node(ast *var_init, ast *l);
 ast *create_var_init_node(char *id, ast *expr, ast *next);
 
 ast *create_prog_root(ast *list_decl, ast *m_prog);
+ast *create_function_node(char *id, ast *params, ast *l_decl, ast *l_i);
 
+ast *create_while_node(ast *expr, ast *l_instr);
+ast *create_if_node(ast *expr, ast *l_instr1, ast *l_instr2);
+
+int ast_to_dot(ast *t, FILE *fp);
 void free_ast(ast *t);
-
 void ast_to_img(ast *t, char *filename, char *fmt);
 
 

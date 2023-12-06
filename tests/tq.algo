@@ -1,6 +1,7 @@
-VAR i <- 0
+
 
 PROGRAMME()
+VAR i <- 0
 DEBUT
     // Test de la boucle tant que
     TQ i <= 10 FAIRE

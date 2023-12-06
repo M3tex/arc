@@ -1,4 +1,4 @@
-//echange les éléments des cases d'indices i et j
+// echange les éléments des cases d'indices i et j
 ALGO ECHANGER( @T,i,j)
 VAR temp
 DEBUT

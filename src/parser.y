@@ -13,6 +13,7 @@
 
 
 extern int yylex();
+extern int yylex_destroy();
 void yyerror(const char *s);
 
 // ToDo: Table symboles
@@ -41,7 +42,7 @@ char current_ctx[32] = "global";
 
 %token <nb> NB
 %token <id> ID
-%token PROGRAMME DEBUT FIN VAR
+%token PROGRAMME DEBUT FIN VAR ALGO
 %token AFFECT_SYMB "<-"
 %token LE "<="
 %token GE ">="
@@ -77,23 +78,27 @@ char current_ctx[32] = "global";
 %type <tree> INSTR
 %type <tree> PROG_MAIN
 %type <tree> AFFECTATION
-%type <tree> DECLA_VAR
+%type <tree> DECLARATION
 %type <tree> LIST_INIT
 %type <tree> STRUCT_TQ
 %type <tree> STRUCT_SI
-%type <tree> LIST_DECLA_VAR
+%type <tree> LIST_DECLA
+%type <tree> FONCTION
+%type <tree> LIST_ARGS
 
 %%
 
-SEP : '\n' 
+SEP : '\n'
+| ';'
 | SEP '\n'
+| SEP ';'
 ;
 
 END_FILE: SEP
 | %empty
 ;
 
-SEP_STRUCT: '\n'
+SEP_STRUCT: SEP
 | %empty
 ;
 
@@ -106,29 +111,47 @@ LIST_INIT: ID "<-" EXP          {$$ = create_var_init_node($1, $3, NULL);}
 
 
 
-DECLA_VAR:VAR LIST_INIT SEP     {$$ = create_var_decla_node($2, NULL);}
+DECLARATION: VAR LIST_INIT SEP  {$$ = create_decla_node($2, NULL);}
+| FONCTION                      {$$ = create_decla_node($1, NULL);}
 ;
 
 
-LIST_DECLA_VAR: %empty          {$$ = NULL;}
-| DECLA_VAR LIST_DECLA_VAR      {$$ = create_var_decla_node($1, $2);}
+LIST_DECLA: %empty              {$$ = NULL;}
+| DECLARATION LIST_DECLA        {$1->decla_list.next = $2; $$ = $1;}
 ;
+
 
 AFFECTATION: ID "<-" EXP   {$$ = create_affect_node(create_id_leaf($1), $3);}   
 ;
 
 
 
-PROGRAMME_ALGO: LIST_DECLA_VAR PROG_MAIN END_FILE {$$ = create_prog_root($1, $2);
-                                               abstract_tree = $$;
-                                             }
+PROGRAMME_ALGO: SEP_STRUCT LIST_DECLA PROG_MAIN END_FILE
+                   {$$ = create_prog_root($2, $3); abstract_tree = $$;}
+; 
+
+
+PROG_MAIN: PROGRAMME '(' ')' SEP        
+LIST_DECLA 
+DEBUT SEP 
+CORPS_FUNC
+FIN             {$$ = create_function_node("PROGRAMME", NULL, $5, $8);}
 ;
 
 
-PROG_MAIN: PROGRAMME '(' ')' SEP LIST_DECLA_VAR DEBUT SEP CORPS_FUNC FIN
-                        {$$ = $8;}
+LIST_ARGS: %empty       {$$ = NULL;}
+| ID                    {$$ = create_var_init_node($1, NULL, NULL);}
+| ID ',' LIST_ARGS      {$$ = create_var_init_node($1, NULL, $3);}
 ;
 
+
+FONCTION: ALGO ID '(' LIST_ARGS ')' SEP
+LIST_DECLA
+DEBUT SEP
+CORPS_FUNC
+FIN                 
+SEP                     {$$ = create_function_node($2, $4, $7, $10);}
+;
 
 CORPS_FUNC: LISTE_INSTR {$$ = $1;}
 ;
@@ -167,12 +190,18 @@ LISTE_INSTR: INSTR      {$$ = create_instr_node($1, NULL);}
 
 
 // Autres structures
-STRUCT_TQ: TQ EXP FAIRE SEP LISTE_INSTR FTQ {}
-;
+STRUCT_TQ: TQ EXP FAIRE SEP LISTE_INSTR FTQ {$$ = create_while_node($2, $5);}
+;       
 
 
-STRUCT_SI: SI EXP ALORS SEP_STRUCT LISTE_INSTR SINON SEP_STRUCT LISTE_INSTR FSI    {}
-| SI EXP ALORS SEP_STRUCT LISTE_INSTR FSI                               {}
+STRUCT_SI: SI EXP ALORS SEP_STRUCT 
+LISTE_INSTR 
+SINON SEP_STRUCT 
+LISTE_INSTR 
+FSI    {$$ = create_if_node($2, $5, $8);}
+| SI EXP ALORS SEP_STRUCT 
+  LISTE_INSTR 
+  FSI  {$$ = create_if_node($2, $5, NULL);}
 ;
 
 %%
@@ -182,8 +211,8 @@ int main(int argc, char **argv)
 {
     extern FILE *yyin;
 
-    int opt;
-    char *options = "o:";
+    int opt, dbg = 0;
+    char *options = "o:d";
     while ((opt = getopt(argc, argv, options)) != -1)
     {
         switch (opt)
@@ -192,6 +221,9 @@ int main(int argc, char **argv)
             exename = (char *) malloc(sizeof(char) * (strlen(optarg) + 1));
             check_alloc(exename);
             strcpy(exename, optarg);
+            break;
+        case 'd':
+            dbg = 1;
             break;
         default:
             break;
@@ -221,11 +253,17 @@ int main(int argc, char **argv)
 
     /* Initialisation de la table des symboles */
     table = init_symb_table("global");
-
+    abstract_tree = NULL;
     yyparse();
-    ast_to_img(abstract_tree, "ast", "png");
+    fclose(yyin);
+
     semantic(abstract_tree);
-    symb_to_img(table, "table", "png");
+
+    if (dbg)
+    {
+        ast_to_img(abstract_tree, "ast", "png");
+        symb_to_img(table, "table", "png");
+    }
 
 
     fp_out = fopen(exename, "w");
@@ -239,6 +277,15 @@ int main(int argc, char **argv)
     init_ram_os();
     codegen(abstract_tree);
     add_instr(STOP, ' ', 0);
+
+
+
+    free_ast(abstract_tree);
+    free_table(table);
+    fclose(fp_out);
+    free(src);
+    /* Libère la mémoire non-libérée par bison */
+    yylex_destroy();    
 
     return 0;
 }

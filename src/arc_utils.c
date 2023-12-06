@@ -52,7 +52,7 @@ void colored_error(int esc_seq, int exit_code, char *fmt, ...)
     
     /*
      * Séquence d'échappement ANSI.
-     * \x1b[ puis code couleur (entre 30 et 37)
+     * \x1b[ puis code couleur (entre 31 et 37 ou 91 et 97)
      */
     sprintf(buff, "\033[%d", clr);
     

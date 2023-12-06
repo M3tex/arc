@@ -1,6 +1,6 @@
 #include "semantic.h"
 #include "arc_utils.h"
-
+#include <string.h>
 
 /**
  * @brief Réalise l'analyse sémantique de l'arbre syntaxique abstrait
@@ -9,6 +9,8 @@
  */
 void semantic(ast *t)
 {
+    static char old_context[32];
+
     if (t == NULL) return;
 
     switch (t->type)
@@ -29,9 +31,9 @@ void semantic(ast *t)
         semantic(t->list_instr.instr);
         semantic(t->list_instr.next);
         break;
-    case var_decla_type:
-        semantic(t->list_var_decla.init_var);
-        semantic(t->list_var_decla.next);
+    case decla_type:
+        semantic(t->decla_list.decla);
+        semantic(t->decla_list.next);
         break;
     case var_init_type:
         add_symbol(table, current_ctx, t->var_init.id->id.name, 1, integer);
@@ -41,6 +43,16 @@ void semantic(ast *t)
         semantic(t->root.list_decl);
         semantic(t->root.main_prog);
         break;
+    case func_type:
+        add_symbol(table, current_ctx, t->function.id->id.name, 0, func);
+        semantic(t->function.id);
+        strcpy(old_context, current_ctx);
+        strcpy(current_ctx, t->function.id->id.name);
+        add_context(table, current_ctx);
+        semantic(t->function.params);
+        semantic(t->function.list_decl);
+        semantic(t->function.list_instr);
+        strcpy(current_ctx, old_context);
     default:
         break;
     }

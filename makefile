@@ -32,7 +32,7 @@ $(BUILD)/%.o: $(SRC)/%.c $(HEADERS)
 
 # Règles pour le parser et le lexer
 $(SRC)/parser.c $(INCLUDE)/parser.h: $(SRC)/parser.y
-	bison -d -o $(SRC)/parser.c $<
+	bison -d -o $(SRC)/parser.c $< -Wcounterexamples
 	mv $(SRC)/parser.h $(INCLUDE)
 
 
