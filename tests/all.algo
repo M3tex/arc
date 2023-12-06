@@ -1,0 +1,45 @@
+# Ce programme fait la démonstration de toutes les fonctionnalités
+# actuellement supportées par `arc`
+
+
+/* Déclaration de variables globales */
+VAR toto <- 5 * 3 + 2, titi <- 4
+VAR tutu
+
+/* Déclaration de fonction */
+ALGO foo(a, b)
+VAR c <- 10
+DEBUT
+    a <- c * b + a
+    tutu <- a
+FIN
+
+/* Autre variable globale */
+VAR tata <- tutu
+
+
+/* Autre fonction */
+ALGO bar()
+DEBUT
+    TQ tata > 0 FAIRE
+        SI tata % 2 = 0 ALORS
+            tata <- tata / 2
+        SINON
+            tata <- tata - 1
+        FSI
+    FTQ
+FIN
+
+
+
+/* Programme principal */
+PROGRAMME()
+VAR tutu, x
+DEBUT
+    # Test des expressions arithmétiques sans variables
+    /* Également un commentaire (et // aussi) */
+    5 * (3 + 1) / (10 - 8)
+    2 + 1
+    toto <- titi * 2 + x
+    # NON 10
+FIN 
