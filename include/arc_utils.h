@@ -12,6 +12,7 @@
 #define F_INPUT_ERROR 4
 #define S_TABLE_NOT_INIT 5
 #define UNDEF_CTX 6
+#define UNDEF_ID 7
 
 
 /* Couleurs (utilisées dans print_color) */
@@ -40,6 +41,8 @@
 
 void print_error(int exit_code, char *fmt, ...);
 void colored_error(int clr, int exit_code, char *fmt, ...);
+
+void print_warning(char *fmt, ...);
 
 void check_alloc(void *ptr);
 void op_to_str(char *dest, int op);
