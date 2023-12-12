@@ -1,6 +1,6 @@
 PROGRAMME()
-VAR toto
+VAR x
 DEBUT
-	# Ceci est un test
-	5 * (192 + x - y) % 7 ET NON (x < y)
+	# Ceci est un test Yohan va potentiellement tout casser
+	x <- 0 < (3 > 5)
 FIN

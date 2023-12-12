@@ -1,18 +1,27 @@
 # Ce programme fait la démonstration de toutes les fonctionnalités
-# actuellement supportées par `arc`
+# actuellement supportées par l'ASA
 
 
 /* Déclaration de variables globales */
 VAR toto <- 5 * 3 + 2, titi <- 4
-VAR tutu
+VAR tutu <- 1
 
 /* Déclaration de fonction */
 ALGO foo(a, b)
-VAR c <- 10
+VAR res <- 0, tmp <- 1
 DEBUT
-    a <- c * b + a
-    tutu <- a
+    TQ a > 0 ET b > 0 FAIRE
+        SI a % 2 = 1 ET b % 2 = 1 ALORS
+            res <- res + 1 * tmp
+        FSI
+        a <- a / 2
+        b <- b / 2
+        tmp <- tmp * 2
+    FTQ
+
+    /* ToDo: retourner res */
 FIN
+
 
 /* Autre variable globale */
 VAR tata <- tutu
@@ -38,8 +47,8 @@ VAR tutu, x
 DEBUT
     # Test des expressions arithmétiques sans variables
     /* Également un commentaire (et // aussi) */
-    5 * (3 + 1) / (10 - 8)
-    2 + 1
+    x <- 5 * (3 + 1) / (10 - 8)
+    tutu <- 2 + 1
     toto <- titi * 2 + x
     # NON 10
 FIN 
