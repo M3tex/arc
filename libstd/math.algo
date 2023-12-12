@@ -50,4 +50,23 @@ DEBUT
 FIN
 
 
-# ToDo: PGCD, PPCM, IS PRIME, etc.
+
+/* Calcule le PGCD de a et de b */
+ALGO pgcd(a, b)
+VAR tmp
+DEBUT
+    TQ b != 0 FAIRE
+        tmp <- b
+        b <- a % b
+        a <- tmp
+    FTQ
+
+    RENVOYER a
+FIN
+
+/* Calcule le PPCM de a et de b */
+ALGO ppcm(a, b)
+DEBUT
+    RENVOYER a * b / pgcd(a, b)
+FIN
+
