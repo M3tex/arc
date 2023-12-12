@@ -51,6 +51,24 @@ context *search_context(symb_table table, const char *c_name)
 
 
 
+symbol *init_symbol(const char *id, int adr, char zone, type_symb t)
+{
+    /* Création du nouveau symbole */
+    symbol *new_symb = (symbol *) malloc(sizeof(symbol));
+    check_alloc(new_symb);
+    
+    new_symb->adr = adr;
+    new_symb->next = NULL;
+    new_symb->size = 1;     // ! pour fonctions
+    new_symb->type = t;
+    new_symb->mem_zone = zone;
+    strcpy(new_symb->id, id);
+
+    return new_symb;
+}
+
+
+
 /**
  * @brief Cherche le symbole d'identificateur `id` dans le contexte
  * `c_name`.
@@ -85,6 +103,35 @@ symbol *search_symbol(symb_table table, const char *c_name, const char *id)
 }
 
 
+/**
+ * @brief Cherche le symbole dans le contexte passé en paramètre, et
+ * s'il n'est pas trouvé dans le contexte `ctx`.
+ * Quitte le programme s'il n'est pas trouvé.
+ * 
+ * @param table 
+ * @param ctx
+ * @param id 
+ * @return symbol* 
+ */
+symbol *get_symbol(symb_table table, const char *ctx, const char *id)
+{
+    symbol *res = search_symbol(table, ctx, id);
+    if (res == NULL)
+    {
+        res = search_symbol(table, "global", id);
+        if (res == NULL)
+        {
+            colored_error(RED|BOLD, 0, "erreur fatale:");
+            print_error(0, " l'identificateur ‘");
+            colored_error(BOLD, 0, "%s", id);
+            print_error(UNDEF_ID, "‘ n'est pas déclaré\n");
+        }
+    }
+
+    return res;
+}
+
+
 
 /**
  * @brief Ajoute le symbole au contexte passé en paramètre.
@@ -92,12 +139,11 @@ symbol *search_symbol(symb_table table, const char *c_name, const char *id)
  * @param table 
  * @param c_name 
  * @param id 
- * @param size 
+ * @param adr 
  * @param type 
  * @return symbol* 
  */
-symbol *add_symbol(symb_table table, const char *c_name, 
-                     const char *id, int size, type_symb type)
+symbol *add_symbol(symb_table table, const char *c_name, symbol *s)
 {
     context *c = search_context(table, c_name);
 
@@ -111,11 +157,11 @@ symbol *add_symbol(symb_table table, const char *c_name,
     while (aux != NULL)
     {
         /* Warning si symbole existe déjà */
-        if (strcmp(aux->id, id) == 0)
+        if (strcmp(aux->id, s->id) == 0)
         {
             colored_error(MAGENTA|BOLD, 0, "warning:");
             print_error(0, " le symbole ");
-            colored_error(BOLD, 0, "‘%s‘", id);
+            colored_error(BOLD, 0, "‘%s‘", s->id);
             print_error(0, " est déjà déclaré dans le contexte ");
             colored_error(GREEN|BOLD, 0, "%s", c_name);
             print_error(0, "\n");
@@ -126,21 +172,16 @@ symbol *add_symbol(symb_table table, const char *c_name,
         aux = aux->next;
     }
 
-    /* Création du nouveau symbole */
-    symbol *new_symb = (symbol *) malloc(sizeof(symbol));
-    check_alloc(new_symb);
-    new_symb->adr = -1;     // ToDo: quoi mettre ?
-    new_symb->next = NULL;
-    new_symb->size = size;
-    new_symb->type = type;
-    strcpy(new_symb->id, id);
-
     /* Si le contexte était vide */
-    if (previous == NULL) c->symb_list = new_symb;
-    else previous->next = new_symb;
+    if (previous == NULL) c->symb_list = s;
+    else previous->next = s;
 
-    return new_symb;
+    return s;
 }
+
+
+
+
 
 
 
@@ -212,19 +253,19 @@ void table_to_dot(symb_table table)
     check_alloc(fp);
 
     fprintf(fp, "graph G {\n");
-    fprintf(fp, "    node [shape=record];\n    overlap=false;\n");
+    fprintf(fp, "\tnode [shape=record];\n\toverlap=false;\n");
 
     /* Parcours des contextes */
     context *c = table;
     while (c != NULL)
     {
-        fprintf(fp, "    %s [label=\"{<%s_label> %s|<%s_symbs>}|<%s_next>\"];\n",
+        fprintf(fp, "\t%s [label=\"{<%s_label> %s|<%s_symbs>}|<%s_next>\"];\n",
                 c->name, c->name, c->name, c->name, c->name);
         
         /* Mise au même niveau que les autre contextes */
         if (c->next != NULL)
         {
-            fprintf(fp, "    {rank=same; %s:%s_next -- %s:%s_label;}",
+            fprintf(fp, "\t{rank=same; %s:%s_next -- %s:%s_label;}",
                 c->name, c->name, c->next->name, c->next->name);
         }
         
@@ -241,7 +282,7 @@ void table_to_dot(symb_table table)
         /* On ajoute le lien avec le contexte */
         if (prev != NULL)
         {
-            fprintf(fp, "    %s:%s_symbs -- %s_%s;\n", c->name, c->name,
+            fprintf(fp, "\t%s:%s_symbs -- %s_%s;\n", c->name, c->name,
                     c->name, prev);
         }
 
@@ -260,14 +301,14 @@ void symb_to_dot(FILE *fp, symbol s, char *c_name, char *previous)
         "entier", "pointeur", "tableau", "fonction"
     };
 
-    fprintf(fp, "    %s_%s [label=\"{%s|{type: %s|taille: %d}", 
+    fprintf(fp, "\t%s_%s [label=\"{%s|{type: %s|taille: %d}", 
                 c_name, s.id, s.id, type_to_str[s.type], s.size);
     fprintf(fp, "|adr: %d|<%s_%s_next>}\"];\n", s.adr, c_name, s.id);
 
     /* Lien avec le symbole précedent, si non NULL */
     if (previous != NULL)
     {
-        fprintf(fp, "    %s_%s:%s_%s_next -- %s_%s;\n", c_name, s.id,
+        fprintf(fp, "\t%s_%s:%s_%s_next -- %s_%s;\n", c_name, s.id,
                 c_name, s.id, c_name, previous);
         // fprintf(fp, "    %s:%s_symbs -- %s_%s;\n", c_name, c_name,
         //         c_name, s.id);
@@ -286,8 +327,10 @@ void symb_to_img(symb_table table, char *filename, char *fmt)
     table_to_dot(table);
 
     char cmd[128];
-    sprintf(cmd, "dot -T%s tmp2.dot -o %s.%s", fmt, filename, fmt);
+
+    /* 2> pour éviter le warning sur l'arrete */
+    sprintf(cmd, "dot -T%s tmp2.dot -o %s.%s 2>> tmp2.dot", fmt, filename, fmt);
 
     system(cmd);
-    // system("rm tmp2.dot");
+    system("rm tmp2.dot");
 }
