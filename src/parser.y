@@ -85,6 +85,7 @@ char current_ctx[32] = "global";
 %type <tree> LIST_DECLA
 %type <tree> FONCTION
 %type <tree> LIST_ARGS
+%type <tree> LIST_EXPR
 
 %%
 
@@ -103,10 +104,10 @@ SEP_STRUCT: SEP
 ;
 
 
-LIST_INIT: ID "<-" EXP          {$$ = create_var_init_node($1, $3, NULL);}
-| ID                            {$$ = create_var_init_node($1, NULL, NULL);}
-| LIST_INIT ',' ID              {$$ = create_var_init_node($3, NULL, $1);}
-| LIST_INIT ',' ID "<-" EXP     {$$ = create_var_init_node($3, $5, $1);}
+LIST_INIT: ID "<-" EXP          {$$ = create_var_decla_node($1, $3, NULL);}
+| ID                            {$$ = create_var_decla_node($1, NULL, NULL);}
+| LIST_INIT ',' ID              {$$ = create_var_decla_node($3, NULL, $1);}
+| LIST_INIT ',' ID "<-" EXP     {$$ = create_var_decla_node($3, $5, $1);}
 ;
 
 
@@ -140,8 +141,14 @@ FIN             {$$ = create_function_node("PROGRAMME", NULL, $5, $8);}
 
 
 LIST_ARGS: %empty       {$$ = NULL;}
-| ID                    {$$ = create_var_init_node($1, NULL, NULL);}
-| ID ',' LIST_ARGS      {$$ = create_var_init_node($1, NULL, $3);}
+| ID                    {$$ = create_var_decla_node($1, NULL, NULL);}
+| ID ',' LIST_ARGS      {$$ = create_var_decla_node($1, NULL, $3);}
+;
+
+
+LIST_EXPR: %empty       {$$ = NULL;}
+| EXP
+| EXP ',' LIST_EXPR
 ;
 
 
@@ -156,6 +163,8 @@ SEP                     {$$ = create_function_node($2, $4, $7, $10);}
 CORPS_FUNC: LISTE_INSTR {$$ = $1;}
 ;
 
+APPEL_FUNC: ID '(' LIST_EXPR ')'
+;
 
 
 EXP: '(' EXP ')'        {$$ = $2;}
@@ -175,13 +184,14 @@ EXP: '(' EXP ')'        {$$ = $2;}
 | EXP "!=" EXP          {$$ = create_b_op_node(NE_OP, $1, $3);}
 | EXP OU EXP            {$$ = create_b_op_node(OR_OP, $1, $3);}
 | EXP ET EXP            {$$ = create_b_op_node(AND_OP, $1, $3);}
+| APPEL_FUNC            {$$ = NULL;}
 ;
 
 
 INSTR: EXP SEP          {$$ = $1;}
 | AFFECTATION SEP       {$$ = $1;}
-| STRUCT_TQ SEP
-| STRUCT_SI SEP
+| STRUCT_TQ SEP         {$$ = $1;}
+| STRUCT_SI SEP         {$$ = $1;}
 ;
 
 LISTE_INSTR: INSTR      {$$ = create_instr_node($1, NULL);}
@@ -279,13 +289,28 @@ int main(int argc, char **argv)
     add_instr(STOP, ' ', 0);
 
 
-
     free_ast(abstract_tree);
     free_table(table);
     fclose(fp_out);
+
+    if (dbg)
+    {
+        /* Temporaire, pour vérifier que semantic marche bien */
+        char buff[256];
+        size_t codelen_total = abstract_tree->codelen + 5;  // + 5 pour ramOS
+        sprintf(buff, "echo \"Codelen total: %ld\nNombre de lignes "\
+        "dans le fichier produit: \" && wc -l %s", codelen_total, exename);
+        system(buff);
+    }
+
+
+
     free(src);
+
+
     /* Libère la mémoire non-libérée par bison */
     yylex_destroy();    
+
 
     return 0;
 }

@@ -75,6 +75,18 @@ void colored_error(int esc_seq, int exit_code, char *fmt, ...)
 
 
 
+void print_warning(char *fmt, ...)
+{
+    fprintf(stderr, "\033[35;1warning:\033[0m ");
+
+    va_list arglist;
+    va_start(arglist, fmt);
+    vfprintf(stderr, fmt, arglist);
+    va_end(arglist);
+}
+
+
+
 /**
  * @brief À appeler à la suite d'un malloc/calloc/realloc.
  * Quitte le programme si le pointeur est NULL.

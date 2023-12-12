@@ -38,14 +38,20 @@ void codegen(ast *t);
 void codegen_nb(ast *t);
 void codegen_b_op(ast *t);
 void codegen_u_op(ast *t);
+void codegen_id(ast *t);
 
 void codegen_or(ast *t);
 void codegen_and(ast *t);
 void codegen_not(ast *t);
 void codegen_lt(ast *t);
 void codegen_gt(ast *t);
+void codegen_le(ast *t);
+void codegen_ge(ast *t);
 void codegen_eq(ast *t);
 void codegen_ne(ast *t);
+
+void codegen_affect(ast *t);
+void codegen_var_decla(ast *t);
 
 void add_instr(instr_ram instr, char t_adr, int adr);
 
