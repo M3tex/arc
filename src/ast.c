@@ -20,7 +20,7 @@ ast *init_ast(node_type type)
 
     t->type = type;
     t->mem_adr = -1;
-    t->codelen = -1;
+    t->codelen = 0;
 
     return t; 
 }
@@ -137,57 +137,57 @@ ast *create_instr_node(ast *instr, ast *l)
 ast *create_affect_node(ast *id, ast *expr)
 {
     ast *t = init_ast(affect_type);
-    t->affect.expr = expr;
     t->affect.id = id;
+    t->affect.expr = expr;
 
     return t;
 }
 
 
 
-ast *create_decla_node(ast *var_init, ast *l)
+ast *create_decla_node(ast *decla, ast *l_decla)
 {
     ast *t = init_ast(decla_type);
-    t->decla_list.decla = var_init;
+    t->decla_list.decla = decla;
 
     /* Il faut faire une opération d'enfilage pour garder le bon ordre */
-    if (l == NULL)
+    if (l_decla == NULL)
     {
-        t->decla_list.next = l;
+        t->decla_list.next = l_decla;
         return t;
     }
     
-    ast *aux = l;
+    ast *aux = l_decla;
     while (aux->decla_list.next != NULL)
     {
         aux = aux->decla_list.next;
     }
     aux->decla_list.next = t;
 
-    return l;
+    return l_decla;
 }
 
 
 
-ast *create_var_init_node(char *id, ast *expr, ast *next)
+ast *create_var_decla_node(char *id, ast *expr, ast *next)
 {
-    ast *t = init_ast(var_init_type);
-    t->var_init.expr = expr;
-    t->var_init.id = create_id_leaf(id);
+    ast *t = init_ast(var_decla_type);
+    t->var_decla.expr = expr;
+    t->var_decla.id = create_id_leaf(id);
 
     /* Il faut faire une opération d'enfilage pour garder le bon ordre */
     if (next == NULL)
     {
-        t->var_init.next = next;
+        t->var_decla.next = next;
         return t;
     }
     
     ast *aux = next;
-    while (aux->var_init.next != NULL)
+    while (aux->var_decla.next != NULL)
     {
-        aux = aux->var_init.next;
+        aux = aux->var_decla.next;
     }
-    aux->var_init.next = t;
+    aux->var_decla.next = t;
 
     return next;
 }
@@ -241,6 +241,16 @@ ast *create_if_node(ast *expr, ast *l_instr1, ast *l_instr2)
 
 
 
+ast *create_print_node(ast *expr)
+{
+    ast *t = init_ast(print_type);
+    t->print.expr = expr;
+
+    return t;
+}
+
+
+
 
 
 /**
@@ -273,10 +283,10 @@ void free_ast(ast *t)
         free_ast(t->decla_list.decla);
         free_ast(t->decla_list.next);
         break;
-    case var_init_type:
-        free_ast(t->var_init.expr);
-        free_ast(t->var_init.id);
-        free_ast(t->var_init.next);
+    case var_decla_type:
+        free_ast(t->var_decla.expr);
+        free_ast(t->var_decla.id);
+        free_ast(t->var_decla.next);
         break;
     case prog_type:
         free_ast(t->root.list_decl);
@@ -426,7 +436,7 @@ static void decla_to_dot(ast *t, int c_id, FILE *fp)
 
 static void var_init_to_dot(ast *t, int c_id, FILE *fp)
 {
-    var_init_node node = t->var_init;
+    var_decla_node node = t->var_decla;
     char pref[16] = "décla";
     char symb[16];
     
@@ -454,7 +464,7 @@ static void func_to_dot(ast *t, int c_id, FILE *fp)
 {
     func_node node = t->function;
 
-    static char *fmt = "\"{%s|{<args%dargs>params|<d%dd>déclarations|\""
+    static char *fmt = "\"{%s|{<args%dargs>params|<d%dd>déclarations|"\
                        "<i%di>instructions}}\"";
 
     sprintf(buff, fmt, node.id->id.name, c_id, c_id, c_id);
@@ -580,7 +590,7 @@ int ast_to_dot(ast *t, FILE *fp)
     case decla_type:
         decla_to_dot(t, c_id, fp);
         break;
-    case var_init_type:
+    case var_decla_type:
         var_init_to_dot(t, c_id, fp);
         break;
     case func_type:
@@ -624,8 +634,9 @@ void ast_to_img(ast *t, char *filename, char *fmt)
     fclose(fp);
 
     char cmd[128];
+
     sprintf(cmd, "dot -T%s tmp.dot -o %s.%s", fmt, filename, fmt);
 
     system(cmd);
-    // system("rm tmp.dot");
+    system("rm tmp.dot");
 }

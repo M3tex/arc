@@ -21,8 +21,8 @@ typedef struct ast ast;
 
 typedef enum {
     nb_type, b_op_type, u_op_type, id_type, affect_type, instr_type,
-    decla_type, var_init_type, prog_type, func_type, while_type,
-    if_type
+    decla_type, var_decla_type, prog_type, func_type, while_type,
+    if_type, print_type
 } node_type;
 
 
@@ -33,6 +33,7 @@ typedef struct {
 
 typedef struct {
     char name[ID_MAX_SIZE];
+    
 } id_leaf;
 
 
@@ -60,7 +61,11 @@ typedef struct {
     ast *expr;
 } affect_node;
 
-
+/*
+ * Un noeud de déclaration contient une déclaration et la déclaration
+ * suivante. Une déclaration peut-être une fonction ou bien une
+ * déclaration (ou initialisation, i.e VAR x <- 1) de variable.
+ */
 typedef struct {
     ast *decla;
     ast *next;
@@ -71,7 +76,7 @@ typedef struct {
     ast *id;
     ast *expr;
     ast *next;
-} var_init_node;
+} var_decla_node;
 
 
 typedef struct {
@@ -101,6 +106,10 @@ typedef struct {
 } if_node;
 
 
+typedef struct {
+    ast *expr;
+} print_node;
+
 
 typedef struct ast {
     node_type type;
@@ -114,11 +123,12 @@ typedef struct ast {
         affect_node affect;
         instr_node list_instr;
         decla_node decla_list;
-        var_init_node var_init;
+        var_decla_node var_decla;
         prog_root root;
         func_node function;
         while_node while_n;
         if_node if_n;
+        print_node print;
     };
 } ast;
 
@@ -130,8 +140,9 @@ ast *create_b_op_node(int op, ast *m1, ast *m2);
 ast *create_u_op_node(int op, ast *c);
 ast *create_instr_node(ast *instr, ast *l);
 ast *create_affect_node(ast *id, ast *expr);
-ast *create_decla_node(ast *var_init, ast *l);
-ast *create_var_init_node(char *id, ast *expr, ast *next);
+ast *create_decla_node(ast *decla, ast *l_decla);
+ast *create_var_decla_node(char *id, ast *expr, ast *next);
+ast *create_print_node(ast *expr);
 
 ast *create_prog_root(ast *list_decl, ast *m_prog);
 ast *create_function_node(char *id, ast *params, ast *l_decl, ast *l_i);
