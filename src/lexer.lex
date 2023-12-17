@@ -52,6 +52,9 @@ COMM     ([#]+.*|\/\/.*|\/\*.*\*\/)
 "ET"            {return ET;}
 "OU"            {return OU;}
 
+"LIRE"          {return LIRE;}
+"ECRIRE"        {return ECRIRE;}
+
 "TQ"            {return TQ;}
 "FAIRE"         {return FAIRE;}
 "FTQ"           {return FTQ;}
@@ -60,6 +63,8 @@ COMM     ([#]+.*|\/\/.*|\/\*.*\*\/)
 "ALORS"         {return ALORS;}
 "SINON"         {return SINON;}
 "FSI"           {return FSI;}
+
+"RETOURNER"     {return RETOURNER;}
 
 "!="            {return DIFF;}
 "<="            {return LE;}

@@ -47,6 +47,8 @@ char current_ctx[32] = "global";
 %token LE "<="
 %token GE ">="
 %token DIFF "!="
+%token LIRE
+%token ECRIRE
 %token TQ
 %token FAIRE
 %token FTQ
@@ -54,6 +56,7 @@ char current_ctx[32] = "global";
 %token ALORS
 %token SINON
 %token FSI
+%token RETOURNER
 %token '\n'
 
 /* Priorités (du - prioritaire au + prioritaire) */
@@ -80,12 +83,16 @@ char current_ctx[32] = "global";
 %type <tree> AFFECTATION
 %type <tree> DECLARATION
 %type <tree> LIST_INIT
-%type <tree> STRUCT_TQ
 %type <tree> STRUCT_SI
+%type <tree> STRUCT_TQ
+%type <tree> STRUCT_FAIRE_TQ
 %type <tree> LIST_DECLA
 %type <tree> FONCTION
 %type <tree> LIST_ARGS
 %type <tree> LIST_EXPR
+%type <tree> APPEL_FUNC
+%type <tree> LIRE_INSTR
+%type <tree> ECRIRE_INSTR
 
 %%
 
@@ -122,7 +129,7 @@ LIST_DECLA: %empty              {$$ = NULL;}
 ;
 
 
-AFFECTATION: ID "<-" EXP   {$$ = create_affect_node(create_id_leaf($1), $3);}   
+AFFECTATION: ID "<-" EXP   {$$ = create_affect_node($1, $3);}
 ;
 
 
@@ -142,13 +149,13 @@ FIN             {$$ = create_function_node("PROGRAMME", NULL, $5, $8);}
 
 LIST_ARGS: %empty       {$$ = NULL;}
 | ID                    {$$ = create_var_decla_node($1, NULL, NULL);}
-| ID ',' LIST_ARGS      {$$ = create_var_decla_node($1, NULL, $3);}
+| LIST_ARGS ',' ID      {$$ = create_var_decla_node($3, NULL, $1);}
 ;
 
 
 LIST_EXPR: %empty       {$$ = NULL;}
-| EXP
-| EXP ',' LIST_EXPR
+| EXP                   {$$ = create_exp_list_node($1, NULL);}
+| LIST_EXPR ',' EXP     {$$ = create_exp_list_node($3, $1);}
 ;
 
 
@@ -163,7 +170,7 @@ SEP                     {$$ = create_function_node($2, $4, $7, $10);}
 CORPS_FUNC: LISTE_INSTR {$$ = $1;}
 ;
 
-APPEL_FUNC: ID '(' LIST_EXPR ')'
+APPEL_FUNC: ID '(' LIST_EXPR ')'    {$$ = create_function_call_node($1, $3);}
 ;
 
 
@@ -171,6 +178,7 @@ EXP: '(' EXP ')'        {$$ = $2;}
 | ID                    {$$ = create_id_leaf($1);}
 | NB                    {$$ = create_nb_leaf(yylval.nb);}
 | NON EXP               {$$ = create_u_op_node(NOT_OP, $2);}
+| '-' EXP               {$$ = create_u_op_node('-', $2);}
 | EXP '+' EXP           {$$ = create_b_op_node('+', $1, $3);}
 | EXP '-' EXP           {$$ = create_b_op_node('-', $1, $3);}
 | EXP '*' EXP           {$$ = create_b_op_node('*', $1, $3);}
@@ -184,14 +192,19 @@ EXP: '(' EXP ')'        {$$ = $2;}
 | EXP "!=" EXP          {$$ = create_b_op_node(NE_OP, $1, $3);}
 | EXP OU EXP            {$$ = create_b_op_node(OR_OP, $1, $3);}
 | EXP ET EXP            {$$ = create_b_op_node(AND_OP, $1, $3);}
-| APPEL_FUNC            {$$ = NULL;}
+| APPEL_FUNC            {$$ = $1;}
+| LIRE_INSTR            {$$ = $1;}
 ;
 
 
 INSTR: EXP SEP          {$$ = $1;}
 | AFFECTATION SEP       {$$ = $1;}
+| ECRIRE_INSTR SEP      {$$ = $1;}
 | STRUCT_TQ SEP         {$$ = $1;}
 | STRUCT_SI SEP         {$$ = $1;}
+| STRUCT_FAIRE_TQ SEP   {$$ = $1;}
+| RETOURNER EXP SEP     {$$ = create_return_node($2);}
+| RETOURNER SEP         {$$ = create_return_node(NULL);}
 ;
 
 LISTE_INSTR: INSTR      {$$ = create_instr_node($1, NULL);}
@@ -200,15 +213,26 @@ LISTE_INSTR: INSTR      {$$ = create_instr_node($1, NULL);}
 
 
 // Autres structures
-STRUCT_TQ: TQ EXP FAIRE SEP LISTE_INSTR FTQ {$$ = create_while_node($2, $5);}
-;       
+LIRE_INSTR: LIRE '(' ')'            {$$ = create_io_node(NULL, 'r');}
+;
+
+ECRIRE_INSTR: ECRIRE '(' EXP ')'    {$$ = create_io_node($3, 'w');}
+;
+
+STRUCT_TQ: TQ EXP FAIRE SEP_STRUCT LISTE_INSTR FTQ {$$ = create_while_node($2, $5);}
+;
+
+STRUCT_FAIRE_TQ: FAIRE SEP_STRUCT
+LISTE_INSTR TQ EXP                  {$$ = create_do_while_node($3, $5);}
+;
 
 
-STRUCT_SI: SI EXP ALORS SEP_STRUCT 
-LISTE_INSTR 
-SINON SEP_STRUCT 
-LISTE_INSTR 
-FSI    {$$ = create_if_node($2, $5, $8);}
+STRUCT_SI: 
+ SI EXP ALORS SEP_STRUCT 
+ LISTE_INSTR 
+ SINON SEP_STRUCT 
+ LISTE_INSTR 
+ FSI    {$$ = create_if_node($2, $5, $8);}
 | SI EXP ALORS SEP_STRUCT 
   LISTE_INSTR 
   FSI  {$$ = create_if_node($2, $5, NULL);}
@@ -286,10 +310,7 @@ int main(int argc, char **argv)
     }
     init_ram_os();
     codegen(abstract_tree);
-    add_instr(STOP, ' ', 0);
 
-
-    free_ast(abstract_tree);
     free_table(table);
     fclose(fp_out);
 
@@ -306,6 +327,7 @@ int main(int argc, char **argv)
 
 
     free(src);
+    free_ast(abstract_tree);
 
 
     /* Libère la mémoire non-libérée par bison */

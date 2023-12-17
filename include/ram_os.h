@@ -35,21 +35,31 @@
  */
 
 
+
+/* Registres temporaires */
+#define TMP_REG_CMP 1
+#define TMP_REG_STK_ADR 2
+#define TMP_REG_ACC_SWP 3
+#define TMP_REG_4 4
+#define TMP_REG_SWP 5
+#define REG_RETURN_VALUE 6
+#define REG_RETURN_ADR 7
+
 /*
+ * Gestion de la pile.
  * Entiers sur 16 bits: les adresses traitées sont donc au + USHRT_MAX
  * (pour être + précis SHRT_MAX car les entiers sont signés).
  * La fin de la mémoire est donc à USHRT_MAX
  */
 #define STACK_START USHRT_MAX
+#define STACK_REG 10
+#define STACK_REL_START 11
+
+
+#define HEAP_REG  5
 
 /* Début du tas: fin de ramOS */
 #define HEAP_START 20
-
-#define TMP_REG_1 1
-#define TMP_REG_2 2
-#define STACK_REG 3
-#define HEAP_REG  4
-#define ADR_REG   5
 
 
 #endif

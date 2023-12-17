@@ -18,8 +18,14 @@ void semantic_affect(ast *t);
 void semantic_instr(ast *);
 void semantic_decla(ast *t);
 void semantic_instr(ast *t);
+void semantic_io(ast *t);
 void semantic_var_decla(ast *t);
-void semantic_function(ast *t);
-
+void semantic_func_decla(ast *t);
+void semantic_func_call(ast *t);
+void semantic_while(ast *t);
+void semantic_do_while(ast *t);
+void semantic_if(ast *t);
+void semantic_return(ast *t);
+void semantic_exp_list(ast *t);
 
 #endif

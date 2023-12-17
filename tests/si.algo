@@ -1,4 +1,4 @@
-VAR i <- 0
+VAR i <- 10
 
 PROGRAMME()
 DEBUT
@@ -8,4 +8,5 @@ DEBUT
     SINON
         i <- 0
     FSI
+    ECRIRE(i)
 FIN 

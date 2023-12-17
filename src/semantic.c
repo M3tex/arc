@@ -20,6 +20,9 @@ static int stack_rel_adr = 0;
 /* Pour swap les contextes */
 static char old_context[32];
 
+/* Pour savoir si une fonction a un "RETOURNER" */
+static int has_return_instr = 0;
+
 
 /**
  * @brief Réalise l'analyse sémantique de l'arbre syntaxique abstrait
@@ -51,6 +54,15 @@ void semantic(ast *t)
     case instr_type:
         semantic_instr(t);
         break;
+    case while_type:
+        semantic_while(t);
+        break;
+    case do_while_type:
+        semantic_do_while(t);
+        break;
+    case if_type:
+        semantic_if(t);
+        break;
     case decla_type:
         semantic_decla(t);
         break;
@@ -68,11 +80,20 @@ void semantic(ast *t)
         }
         
         break;
-    case func_type:
-        semantic_function(t);
+    case func_decla_type:
+        semantic_func_decla(t);
         break;
-    case print_type:
-        semantic(t->print.expr);
+    case func_call_type:
+        semantic_func_call(t);
+        break;
+    case return_type:
+        semantic_return(t);
+        break;
+    case exp_list_type:
+        semantic_exp_list(t);
+        break;
+    case io_type:
+        semantic_io(t);
         break;
     default:
         break;
@@ -125,10 +146,10 @@ void semantic_id(ast *t)
      */
     
     /* On vérifie que l'identifiant existe */
-    get_symbol(table, current_ctx, t->id.name);
+    symbol * tmp = get_symbol(table, current_ctx, t->id.name);
 
     /* Un LOAD (les STORE seront gérés dans les affectations) */
-    t->codelen = 1;
+    t->codelen = tmp->mem_zone == 's' ? 4 : 1;
 }
 
 
@@ -179,7 +200,8 @@ void semantic_u_op(ast *t)
     case NOT_OP:
         t->codelen += 4;
         break;
-    
+    case '-':
+        t->codelen += 1;
     default:
         break;
     }
@@ -191,20 +213,83 @@ void semantic_instr(ast *t)
 {
     instr_node node = t->list_instr;
     semantic(node.instr);
-    semantic(node.next);
-
     t->codelen = node.instr->codelen;
+
+    /* Si c'est un RETOURNER on s'arrête là */
+    if (node.instr->type == return_type)
+    {
+        if (node.next != NULL)
+        {
+            colored_error(MAGENTA|BOLD, 0, "warning:");
+            print_error(0, " les instructions après le RETOURNER ne seront jamais exécutées\n");
+        }
+        return;
+    }
+
+    /* Sinon on continue normalement */
+    semantic(node.next);
     if (node.next != NULL) t->codelen += node.next->codelen;
+}
+
+
+void semantic_while(ast *t)
+{
+    while_node node = t->while_n;
+    semantic(node.expr);
+    semantic(node.list_instr);
+
+    t->codelen = node.expr->codelen + node.list_instr->codelen + 2;
+}
+
+
+void semantic_do_while(ast *t)
+{
+    do_while_node node = t->do_while;
+    semantic(node.list_instr);
+    semantic(node.expr);
+
+    t->codelen = node.expr->codelen + node.list_instr->codelen + 2;
+}
+
+
+
+void semantic_if(ast *t)
+{
+    if_node node = t->if_n;
+    semantic(node.expr);
+    semantic(node.list_instr1);
+    semantic(node.list_instr2);
+
+    t->codelen = node.list_instr1->codelen + node.expr->codelen + 2;
+    if (node.list_instr2 != NULL) t->codelen += node.list_instr2->codelen;
 }
 
 
 
 void semantic_affect(ast *t)
 {
-    semantic(t->affect.expr);
-    semantic(t->affect.id);
+    affect_node node = t->affect;
 
-    t->codelen = t->affect.expr->codelen + 1;
+    semantic(node.expr);
+    semantic(node.id);
+
+    symbol * tmp = get_symbol(table, current_ctx, node.id->id.name);
+
+    int cost = tmp->mem_zone == 's' ? 6 : 1;
+    t->codelen = node.expr->codelen + cost;
+}
+
+
+
+void semantic_io(ast *t)
+{
+    io_node node = t->io;
+    semantic(node.expr);
+
+    t->codelen = 1;     /* READ ou WRITE */
+    if (node.mode == 'r') return;
+
+    t->codelen += node.expr->codelen;
 }
 
 
@@ -231,18 +316,20 @@ void semantic_var_decla(ast *t)
      */
     char zone = strcmp(current_ctx, "global") == 0 ? 'h' : 's';
 
-    /* Temporaire: l'adresse est celle dans le tas */
-    // ToDo: adresse en fonction du contexte (tas ou pile)
+    t->codelen = 1;
+
     int adr;
+    int stack_instr = 0;
     if (zone == 'h')
     {
         adr = node.id->mem_adr = HEAP_START + heap_rel_adr++;
     }
     else if (zone == 's')
     {
-        adr = node.id->mem_adr = STACK_START - stack_rel_adr++;
+        adr = node.id->mem_adr = stack_rel_adr++;
+        stack_instr = 5;
     }
-    
+
 
     symbol *new_symb = init_symbol(node.id->id.name, adr, zone, integer);
     add_symbol(table, current_ctx, new_symb);
@@ -250,10 +337,9 @@ void semantic_var_decla(ast *t)
     semantic(node.next);
     semantic(node.id);
 
-    /* 1 pour la gestion de la modification du ptr de pile/tas */
-    t->codelen = 1;
-    /* + 1 pour le STORE */
-    if (node.expr != NULL) t->codelen += node.expr->codelen + 1;
+
+    /* + 2 pour le STORE et la MAJ du tas/pile */
+    if (node.expr != NULL) t->codelen += node.expr->codelen + 1 + stack_instr;
     if (node.next != NULL) t->codelen += node.next->codelen;
 
     // printf("Déclaration de %s: %ld instructions RAM\n", node.id->id.name, t->codelen);
@@ -266,14 +352,18 @@ void semantic_var_decla(ast *t)
  * 
  * @param t 
  */
-void semantic_function(ast *t)
+void semantic_func_decla(ast *t)
 {
-    func_node node = t->function;
+    func_decla_node node = t->func_decla;
+
+    /* Le champs adr contiendra le nombre de paramètres */
+    int n = node.nb_params;
 
     /* On ajoute l'id de la fonction au contexte actuel */
     symbol *new_symb = init_symbol(node.id->id.name, 0, 'h', func);
+    new_symb->size = n;
     add_symbol(table, current_ctx, new_symb);
-    semantic(t->function.id);
+    semantic(t->func_decla.id);
 
     /* On change le contexte qui devient le nom de la fonction */
     strcpy(old_context, current_ctx);
@@ -286,18 +376,112 @@ void semantic_function(ast *t)
      */
     int old_stack_rel_adr = stack_rel_adr;
 
+    /*
+     * 1 car l'adresse relative 0 est réservée à une éventuelle adresse
+     * de retour dans les fonctions autres que la fonction principale.
+     */
+    stack_rel_adr = strcmp(node.id->id.name, "PROGRAMME") == 0 ? 0 : 1;
+
+    has_return_instr = 0;
 
     semantic(node.params);
     semantic(node.list_decl);
     semantic(node.list_instr);
 
+    new_symb->has_return = has_return_instr;
+
+
     t->codelen = 0;
 
-    if (node.params != NULL) t->codelen += node.params->codelen;
+    // if (node.params != NULL) t->codelen += node.params->codelen;
     if (node.list_decl != NULL) t->codelen += node.list_decl->codelen;
     if (node.list_instr != NULL) t->codelen += node.list_instr->codelen;
+
+    if (strcmp(node.id->id.name, "PROGRAMME") == 0) t->codelen += 1;
+    else 
+    {
+        t->codelen += 1;
+        t->codelen += 12 + 2;
+        if (!new_symb->has_return) t->codelen += 1;
+    }
+
 
     /* On revient au contexte précédent */
     strcpy(current_ctx, old_context);
     stack_rel_adr = old_stack_rel_adr;
+}
+
+
+
+void semantic_func_call(ast *t)
+{
+    func_call_node node = t->func_call;
+
+    /* On vérifie que la fonction existe */
+    symbol *tmp = get_symbol(table, current_ctx, node.func_id->id.name);
+
+    /* On compte le nombre de paramètres */
+    int nb_params = 0;
+    ast *aux = node.params;
+    while (aux != NULL)
+    {
+        nb_params++;
+        aux = aux->exp_list.next;
+    }
+
+    /* On vérifie que le nombre de paramètre est le bon */
+    if (nb_params != tmp->size)
+    {
+        colored_error(RED|BOLD, 0, "erreur fatale:");
+        print_error(1, " le nombre de paramètres est incorrect (%d donnés, %d attendus)\n", nb_params, tmp->size);
+    }
+    
+    /* Analyse sémantique des paramètres passés */
+    semantic(node.params);
+
+    /*
+     * Codelen: 1 mise à jour de STACK_REL_START, 1 JUMP vers le code
+     * de la fonction, et re mise en l'état initial de STACK_REL_START.
+     * 
+     * On ajoute également le coût de la copie des paramètres dans la
+     * pile. On va empiler les paramètres à la suite dans la pile.
+     */
+    t->codelen = 7 + node.params->codelen + 2 * nb_params + 3;
+}
+
+
+void semantic_return(ast *t)
+{
+    return_node node = t->return_n;
+    has_return_instr = 1;
+
+    /*
+     * On ne peut retourner que depuis une fonction autre que la
+     * fonction principale PROGRAMME
+     */
+    if (strcmp(current_ctx, "global") == 0 
+        || strcmp(current_ctx, "PROGRAMME") == 0)
+    {
+        colored_error(RED|BOLD, 0, "erreur fatale:");
+        print_error(1, " instruction 'RETOURNER' utilisée au mauvais endroit\n");
+    }
+
+    t->codelen = 1;
+
+    if (node.expr != NULL)
+    {
+        semantic(node.expr);
+        t->codelen = node.expr->codelen;
+    }    
+}
+
+
+void semantic_exp_list(ast *t)
+{
+    exp_list_node node = t->exp_list;
+    semantic(node.exp);
+    semantic(node.next);
+
+    t->codelen = node.exp->codelen;
+    if (node.next != NULL) t->codelen += node.next->codelen;
 }

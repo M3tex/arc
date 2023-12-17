@@ -49,7 +49,7 @@ ast *create_nb_leaf(int value)
  * @param id 
  * @return ast* 
  */
-ast *create_id_leaf(char *id)
+ast *create_id_leaf(const char *id)
 {
     ast *t = init_ast(id_type);
     strcpy(t->id.name, id);
@@ -134,10 +134,10 @@ ast *create_instr_node(ast *instr, ast *l)
  * @param expr 
  * @return ast* 
  */
-ast *create_affect_node(ast *id, ast *expr)
+ast *create_affect_node(char *id, ast *expr)
 {
     ast *t = init_ast(affect_type);
-    t->affect.id = id;
+    t->affect.id = create_id_leaf(id);
     t->affect.expr = expr;
 
     return t;
@@ -206,11 +206,39 @@ ast *create_prog_root(ast *list_decl, ast *m_prog)
 
 ast *create_function_node(char *id, ast *params, ast *l_decl, ast *l_i)
 {
-    ast *t = init_ast(func_type);
-    t->function.id = create_id_leaf(id);
-    t->function.params = params;
-    t->function.list_decl = l_decl;
-    t->function.list_instr = l_i;
+    ast *t = init_ast(func_decla_type);
+    t->func_decla.id = create_id_leaf(id);
+    t->func_decla.params = params;
+    t->func_decla.list_decl = l_decl;
+    t->func_decla.list_instr = l_i;
+
+    /* On compte le nombre de paramètres */
+    t->func_decla.nb_params = 0;
+    ast *aux = t->func_decla.params;
+    while (aux != NULL)
+    {
+        t->func_decla.nb_params++;
+        aux = aux->var_decla.next;
+    }
+
+    /* Idem pour le nombre de déclarations */
+    t->func_decla.nb_decla = 0;
+    aux = t->func_decla.list_decl;
+    while (aux != NULL)
+    {
+        t->func_decla.nb_decla++;
+        aux = aux->decla_list.next;
+    } 
+
+    return t;
+}
+
+
+
+ast *create_return_node(ast *expr)
+{
+    ast *t = init_ast(return_type);
+    t->return_n.expr = expr;
 
     return t;
 }
@@ -223,6 +251,16 @@ ast *create_while_node(ast *expr, ast *l_instr)
     ast *t = init_ast(while_type);
     t->while_n.expr = expr;
     t->while_n.list_instr = l_instr;
+
+    return t;
+}
+
+
+ast *create_do_while_node(ast *l_instr, ast *expr)
+{
+    ast *t = init_ast(do_while_type);
+    t->do_while.expr = expr;
+    t->do_while.list_instr = l_instr;
 
     return t;
 }
@@ -241,10 +279,53 @@ ast *create_if_node(ast *expr, ast *l_instr1, ast *l_instr2)
 
 
 
-ast *create_print_node(ast *expr)
+/**
+ * @brief Créé un noeud d'entrée / sortie (LIRE ou ECRIRE).
+ * m vaudra r pour LIRE et w pour ECRIRE
+ * 
+ * @param expr 
+ * @param m 
+ * @return ast* 
+ */
+ast *create_io_node(ast *expr, char m)
 {
-    ast *t = init_ast(print_type);
-    t->print.expr = expr;
+    ast *t = init_ast(io_type);
+    t->io.expr = expr;
+    t->io.mode = m;
+
+    return t;
+}
+
+
+ast *create_exp_list_node(ast *expr, ast *next)
+{
+    ast *t = init_ast(exp_list_type);
+    t->exp_list.exp = expr;
+
+    /* Il faut faire une opération d'enfilage pour garder le bon ordre */
+    if (next == NULL)
+    {
+        t->exp_list.next = next;
+        return t;
+    }
+    
+    ast *aux = next;
+    while (aux->exp_list.next != NULL)
+    {
+        aux = aux->exp_list.next;
+    }
+    aux->exp_list.next = t;
+
+    return next;
+}
+
+
+
+ast *create_function_call_node(const char *id, ast *params)
+{
+    ast *t = init_ast(func_call_type);
+    t->func_call.func_id = create_id_leaf(id);
+    t->func_call.params = params;
 
     return t;
 }
@@ -292,11 +373,11 @@ void free_ast(ast *t)
         free_ast(t->root.list_decl);
         free_ast(t->root.main_prog);
         break;
-    case func_type:
-        free_ast(t->function.id);
-        free_ast(t->function.list_decl);
-        free_ast(t->function.list_instr);
-        free_ast(t->function.params);
+    case func_decla_type:
+        free_ast(t->func_decla.id);
+        free_ast(t->func_decla.list_decl);
+        free_ast(t->func_decla.list_instr);
+        free_ast(t->func_decla.params);
         break;
     case while_type:
         free_ast(t->while_n.expr);
@@ -306,6 +387,9 @@ void free_ast(ast *t)
         free_ast(t->if_n.expr);
         free_ast(t->if_n.list_instr1);
         free_ast(t->if_n.list_instr2);
+        break;
+    case io_type:
+        free_ast(t->io.expr);
         break;
     default:
         break;
@@ -415,6 +499,24 @@ static void instr_to_dot(ast *t, int c_id, FILE *fp)
 }
 
 
+static void exp_list_to_dot(ast *t, int c_id, FILE *fp)
+{
+    exp_list_node node = t->exp_list;
+    static char *fmt = "\"{L_EXPR|{<l%dl>|<r%dr> next}}\"";
+
+    sprintf(buff, fmt, c_id, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+
+    tmp = ast_to_dot(node.exp, fp);
+    fprintf(fp, "    %d:l%dl -- %d;\n", c_id, c_id, tmp);
+
+    if (node.next == NULL) return;
+
+    tmp = ast_to_dot(node.next, fp);
+    fprintf(fp, "    %d:r%dr -- %d;\n", c_id, c_id, tmp);
+}
+
+
 static void decla_to_dot(ast *t, int c_id, FILE *fp)
 {
     decla_node node = t->decla_list;
@@ -431,6 +533,7 @@ static void decla_to_dot(ast *t, int c_id, FILE *fp)
     tmp = ast_to_dot(node.next, fp);
     fprintf(fp, "    %d:r%dr -- %d;\n", c_id, c_id, tmp);
 }
+
 
 
 
@@ -460,9 +563,9 @@ static void var_init_to_dot(ast *t, int c_id, FILE *fp)
 
 
 
-static void func_to_dot(ast *t, int c_id, FILE *fp)
+static void func_decla_to_dot(ast *t, int c_id, FILE *fp)
 {
-    func_node node = t->function;
+    func_decla_node node = t->func_decla;
 
     static char *fmt = "\"{%s|{<args%dargs>params|<d%dd>déclarations|"\
                        "<i%di>instructions}}\"";
@@ -508,6 +611,22 @@ static void while_to_dot(ast *t, int c_id, FILE *fp)
 }
 
 
+static void do_while_to_dot(ast *t, int c_id, FILE *fp)
+{
+    do_while_node node = t->do_while;
+    static char *fmt = "\"{FAIRE|{<l%dl>|<r%dr>TQ est vraie}}\"";
+
+    sprintf(buff, fmt, c_id, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+
+    tmp = ast_to_dot(node.list_instr, fp);
+    fprintf(fp, "    %d:l%dl -- %d;\n", c_id, c_id, tmp);
+
+    tmp = ast_to_dot(node.expr, fp);
+    fprintf(fp, "    %d:r%dr -- %d;\n", c_id, c_id, tmp);
+}
+
+
 
 static void if_to_dot(ast *t, int c_id, FILE *fp)
 {
@@ -531,6 +650,26 @@ static void if_to_dot(ast *t, int c_id, FILE *fp)
 
 
 
+static void io_to_dot(ast *t, int c_id, FILE *fp)
+{
+    io_node node = t->io;
+    static char *fmt = "\"{%s|{<c%dc>}}\"";
+
+    char inst_name[32];
+    if (node.mode == 'r') strcpy(inst_name, "Lire");
+    else strcpy(inst_name, "Afficher");
+
+    sprintf(buff, fmt, inst_name, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+
+    if (node.expr == NULL) return;
+
+    tmp = ast_to_dot(node.expr, fp);
+    fprintf(fp, "    %d:c%dc -- %d;\n", c_id, c_id, tmp);
+}
+
+
+
 static void prog_to_dot(ast *t, int c_id, FILE *fp)
 {
     prog_root node = t->root;
@@ -548,9 +687,38 @@ static void prog_to_dot(ast *t, int c_id, FILE *fp)
     /* Ajout des déclarations */
     tmp = ast_to_dot(node.list_decl, fp);
     fprintf(fp, "    %d:l%dl -- %d;\n", c_id, c_id, tmp);
-
-
 }
+
+
+static void function_call_to_dot(ast *t, int c_id, FILE *fp)
+{
+    func_call_node node = t->func_call;
+    static char *fmt = "\"{appel de %s|{<p%dp>params}}\"";
+
+    /* Création du noeud */
+    sprintf(buff, fmt, node.func_id->id.name, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+    
+    if (node.params == NULL) return;
+    tmp = ast_to_dot(node.params, fp);
+    fprintf(fp, "    %d:p%dp -- %d;\n", c_id, c_id, tmp);
+}
+
+
+static void return_to_dot(ast *t, int c_id, FILE *fp)
+{
+    return_node node = t->return_n;
+    static char *fmt = "\"{RETOURNER|{<c%dc>}}\"";
+
+    sprintf(buff, fmt, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+
+    if (node.expr == NULL) return;
+
+    tmp = ast_to_dot(node.expr, fp);
+    fprintf(fp, "    %d:c%dc -- %d;\n", c_id, c_id, tmp);
+}
+
 
 
 /**
@@ -593,18 +761,32 @@ int ast_to_dot(ast *t, FILE *fp)
     case var_decla_type:
         var_init_to_dot(t, c_id, fp);
         break;
-    case func_type:
-        /* Création de */
-        func_to_dot(t, c_id, fp);
+    case func_decla_type:
+        func_decla_to_dot(t, c_id, fp);
+        break;
+    case func_call_type:
+        function_call_to_dot(t, c_id, fp);
+        break;
+    case return_type:
+        return_to_dot(t, c_id, fp);
         break;
     case while_type:
         while_to_dot(t, c_id, fp);
         break;
+    case do_while_type:
+        do_while_to_dot(t, c_id, fp);
+        break;
     case if_type:
         if_to_dot(t, c_id, fp);
         break;
+    case io_type:
+        io_to_dot(t, c_id, fp);
+        break;
     case prog_type:
         prog_to_dot(t, c_id, fp);
+        break;
+    case exp_list_type:
+        exp_list_to_dot(t, c_id, fp);
         break;
     default:
         break;
@@ -638,5 +820,5 @@ void ast_to_img(ast *t, char *filename, char *fmt)
     sprintf(cmd, "dot -T%s tmp.dot -o %s.%s", fmt, filename, fmt);
 
     system(cmd);
-    system("rm tmp.dot");
+    //system("rm tmp.dot");
 }

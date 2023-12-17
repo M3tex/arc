@@ -1,0 +1,17 @@
+ALGO test(a, b)
+VAR x, y
+DEBUT
+    x <- a * 2 + b
+    y <- x / 2
+    RETOURNER x
+FIN
+
+
+VAR toto <- 42
+
+PROGRAMME()
+VAR x <- 1, y <- 4
+DEBUT
+    y <- 5
+    ECRIRE(test(x, y))
+FIN

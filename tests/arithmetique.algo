@@ -1,0 +1,9 @@
+PROGRAMME()
+VAR x, y <- 5, z
+DEBUT
+    # Test des expressions arithmétiques
+    /* Également un commentaire (et // aussi) */
+    z <- 2
+    x <- y * 3 + 5
+    y <- x * 2
+FIN 

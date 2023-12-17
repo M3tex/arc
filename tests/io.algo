@@ -1,0 +1,6 @@
+PROGRAMME()
+VAR n, somme <- 4
+DEBUT
+    n <- LIRE()
+    ECRIRE(n * somme + 1)
+FIN

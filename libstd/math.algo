@@ -3,20 +3,22 @@
 
 /* Calcule x^n */
 ALGO puissance(x, n)
-VAR y <- x
+VAR y <- 1
 DEBUT
     SI n = 0 ALORS
-        RENVOYER 1
+        RETOURNER 1
     FSI
-
-    TQ n != 0 FAIRE
-        y = y * y
+    
+    TQ n > 1 FAIRE
         SI n % 2 = 1 ALORS
-            y = y * x
+            y <- y * x
+            n <- n - 1
         FSI
+        x <- x * x
+        n <- n / 2
     FTQ
 
-    RENVOYER y
+    RETOURNER y * x
 FIN
 
 

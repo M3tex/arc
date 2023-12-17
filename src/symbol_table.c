@@ -62,6 +62,7 @@ symbol *init_symbol(const char *id, int adr, char zone, type_symb t)
     new_symb->size = 1;     // ! pour fonctions
     new_symb->type = t;
     new_symb->mem_zone = zone;
+    new_symb->has_return = 0;   /* Pour les fonctions */
     strcpy(new_symb->id, id);
 
     return new_symb;
@@ -159,6 +160,7 @@ symbol *add_symbol(symb_table table, const char *c_name, symbol *s)
         /* Warning si symbole existe déjà */
         if (strcmp(aux->id, s->id) == 0)
         {
+            // print_warning("le symbole '%s' est déjà déclaré", s->id);
             colored_error(MAGENTA|BOLD, 0, "warning:");
             print_error(0, " le symbole ");
             colored_error(BOLD, 0, "‘%s‘", s->id);

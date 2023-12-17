@@ -8,6 +8,12 @@
 #include <stdio.h>
 
 
+/* Coût des opérations sur la pile (en nb d'instructions RAM) */
+#define PUSH_COST 2
+#define POP_COST 1
+#define PEEK_COST 1
+
+
 /* Utilisé dans `add_instr` */
 typedef enum {
     READ,
@@ -51,7 +57,16 @@ void codegen_eq(ast *t);
 void codegen_ne(ast *t);
 
 void codegen_affect(ast *t);
+void codegen_instr(ast *t);
+void codegen_io(ast *t);
 void codegen_var_decla(ast *t);
+void codegen_func_decla(ast *t);
+void codegen_func_call(ast *t);
+void codegen_return(ast *t);
+
+void codegen_while(ast *t);
+void codegen_do_while(ast *t);
+void codegen_if(ast *t);
 
 void add_instr(instr_ram instr, char t_adr, int adr);
 

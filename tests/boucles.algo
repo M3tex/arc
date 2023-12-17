@@ -1,0 +1,17 @@
+
+
+PROGRAMME()
+VAR i <- 0
+DEBUT
+    /* Test de la boucle tant que (<=> while) */
+    TQ i <= 10 FAIRE
+        i <- i + 1
+    FTQ
+
+    /* Test de la boucle faire tant-que (<=> do while) */
+    FAIRE 
+        i <- i - 1
+    TQ i >= 0
+
+    # ToDo: boucle POUR i dans 2...10 FAIRE ... FPOUR
+FIN 

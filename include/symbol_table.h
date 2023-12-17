@@ -24,6 +24,7 @@ typedef struct _symbol {
     type_symb type;
     int size;
     int adr;
+    int has_return;
     char mem_zone;
     struct _symbol *next;
 } symbol;

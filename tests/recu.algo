@@ -1,0 +1,16 @@
+ALGO factorielle(n)
+VAR res <- 1
+DEBUT
+    SI n > 1 ALORS
+        res <- n * factorielle(n - 1)
+    FSI
+    ECRIRE(res)
+    RETOURNER res
+FIN
+
+PROGRAMME()
+VAR n
+DEBUT
+    n <- LIRE()
+    ECRIRE(factorielle(n))
+FIN

@@ -1,0 +1,29 @@
+/* Calcule x^n */
+ALGO puissance(x, n)
+VAR y <- 1
+DEBUT
+    SI n = 0 ALORS
+        RETOURNER 1
+    FSI
+    
+    TQ n > 1 FAIRE
+        SI n % 2 = 1 ALORS
+            y <- y * x
+            n <- n - 1
+        FSI
+        x <- x * x
+        n <- n / 2
+    FTQ
+
+    RETOURNER y * x
+FIN
+
+
+
+PROGRAMME()
+VAR a, n
+DEBUT
+    a <- LIRE()
+    n <- LIRE()
+    ECRIRE(puissance(a, n) * 3)
+FIN
