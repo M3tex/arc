@@ -54,7 +54,7 @@ context *search_context(symb_table table, const char *c_name)
 symbol *init_symbol(const char *id, int adr, char zone, type_symb t)
 {
     /* Création du nouveau symbole */
-    symbol *new_symb = (symbol *) malloc(sizeof(symbol));
+    symbol *new_symb = (symbol *) calloc(1, sizeof(symbol));
     check_alloc(new_symb);
     
     new_symb->adr = adr;
@@ -63,6 +63,9 @@ symbol *init_symbol(const char *id, int adr, char zone, type_symb t)
     new_symb->type = t;
     new_symb->mem_zone = zone;
     new_symb->has_return = 0;   /* Pour les fonctions */
+    new_symb->is_used = 0;      /* Pour les warnings */
+    new_symb->is_modified = 0;
+    new_symb->is_init = 0;
     strcpy(new_symb->id, id);
 
     return new_symb;
@@ -85,10 +88,8 @@ symbol *search_symbol(symb_table table, const char *c_name, const char *id)
     context *c = search_context(table, c_name);
     if (c == NULL)
     {
-        colored_error(RED|BOLD, 0, "erreur fatale: ");
-        print_error(0, "le contexte `");
-        colored_error(BLUE, 0, "%s", c_name);
-        print_error(UNDEF_CTX, "` est inconnu\n");
+        fatal_error("[internal error] contexte `~b%s~E` inconnu", c_name);
+        exit(UNDEF_CTX);
     }
 
     symbol *aux = c->symb_list;
@@ -108,6 +109,8 @@ symbol *search_symbol(symb_table table, const char *c_name, const char *id)
  * @brief Cherche le symbole dans le contexte passé en paramètre, et
  * s'il n'est pas trouvé dans le contexte `ctx`.
  * Quitte le programme s'il n'est pas trouvé.
+ * À appeler seulement quand le symbole est censé exister dans la table (par
+ * exemple quand un id est utilisé dans une expression).
  * 
  * @param table 
  * @param ctx
@@ -122,13 +125,13 @@ symbol *get_symbol(symb_table table, const char *ctx, const char *id)
         res = search_symbol(table, "global", id);
         if (res == NULL)
         {
-            colored_error(RED|BOLD, 0, "erreur fatale:");
-            print_error(0, " l'identificateur ‘");
-            colored_error(BOLD, 0, "%s", id);
-            print_error(UNDEF_ID, "‘ n'est pas déclaré\n");
+            fatal_error("l'identificateur ‘~B%s~E‘ n'est pas déclaré", id);
+            exit(UNDEF_ID);
         }
     }
 
+
+    res->is_used = 1;
     return res;
 }
 
@@ -157,17 +160,12 @@ symbol *add_symbol(symb_table table, const char *c_name, symbol *s)
     symbol *previous = NULL;
     while (aux != NULL)
     {
-        /* Warning si symbole existe déjà */
+        /* Si symbole existe déjà */
         if (strcmp(aux->id, s->id) == 0)
         {
-            // print_warning("le symbole '%s' est déjà déclaré", s->id);
-            colored_error(MAGENTA|BOLD, 0, "warning:");
-            print_error(0, " le symbole ");
-            colored_error(BOLD, 0, "‘%s‘", s->id);
-            print_error(0, " est déjà déclaré dans le contexte ");
-            colored_error(GREEN|BOLD, 0, "%s", c_name);
-            print_error(0, "\n");
-            return aux;     // ToDo: simple warning ou erreur fatale ?
+            fatal_error("le symbole ‘~B%s~E‘ est déjà déclaré dans le contexte"\
+                    " ~g~B%s~E", s->id, c_name);
+            return aux;     
         }
 
         previous = aux;
@@ -194,14 +192,11 @@ context *add_context(symb_table table, const char *c_name)
     context *aux = table;
     while (aux->next != NULL)
     {
-        /* Le contexte existe déjà */
+        // ToDo: simple warning ou erreur fatale ?
         if (strcmp(aux->name, c_name) == 0)
         {
-            colored_error(MAGENTA|BOLD, 0, "warning:");
-            print_error(0, " le contexte ");
-            colored_error(GREEN, 0, "%s", c_name);
-            print_error(0, " existe déjà\n");
-            return aux;           // ToDo: simple warning ou erreur fatale ?
+            warning("le contexte ~g%s~E existe déjà", c_name);
+            return aux;           
         }
 
         aux = aux->next;

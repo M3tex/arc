@@ -37,12 +37,29 @@
 #define NE_OP 261
 
 
+/* Structure contenant les informations de l'erreur (un peu comme un errno) */
+struct error_info {
+    int has_info;
+    int lig;
+    int col;
+};
+
+
+extern struct error_info ERROR_INFO;
+extern char *src;
+
+
 
 
 void print_error(int exit_code, char *fmt, ...);
 void colored_error(int clr, int exit_code, char *fmt, ...);
 
-void print_warning(char *fmt, ...);
+void fatal_error(char *fmt, ...);
+
+void warning(char *fmt, ...);
+
+void set_error_info(int l, int c);
+void unset_error_info();
 
 void check_alloc(void *ptr);
 void op_to_str(char *dest, int op);

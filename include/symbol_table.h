@@ -18,6 +18,9 @@ typedef enum {integer, pointer, array, func} type_symb;
  * adr: l'adresse de la donnée stockée
  * mem_zone: 'h' si stocké dans le tas, 's' si dans la pile.
  * next: le symbole suivant dans le contexte
+ * is_used: 1 si le symbole est utilisé, 0 sinon (pour warnings)
+ * is_modified: pour les optimisations
+ * is_init: pour les erreurs
  */
 typedef struct _symbol {
     char id[ID_MAX_SIZE];
@@ -27,6 +30,9 @@ typedef struct _symbol {
     int has_return;
     char mem_zone;
     struct _symbol *next;
+    int is_used;
+    int is_modified;
+    int is_init;
 } symbol;
 
 
