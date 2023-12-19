@@ -5,11 +5,13 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <linux/limits.h>
 #include "ast.h"
 #include "arc_utils.h"
 #include "codegen.h"
 #include "symbol_table.h"
 #include "semantic.h"
+#include "preprocessor.h"
 
 
 extern int yylex();
@@ -23,6 +25,11 @@ symb_table table = NULL;
 
 char *src = NULL;
 char *exename = "a.out";
+char *include_path = NULL;
+
+int line_offset = 0;
+
+char PROJECT_PATH[PATH_MAX];
 FILE *fp_out;
 
 char current_ctx[32] = "global";
@@ -56,6 +63,10 @@ char current_ctx[32] = "global";
 %token ALORS
 %token SINON
 %token FSI
+%token POUR
+%token DANS
+%token FPOUR
+%token RANGE_SYMB "..."
 %token RETOURNER
 %token '\n'
 
@@ -86,6 +97,7 @@ char current_ctx[32] = "global";
 %type <tree> STRUCT_SI
 %type <tree> STRUCT_TQ
 %type <tree> STRUCT_FAIRE_TQ
+%type <tree> STRUCT_POUR
 %type <tree> LIST_DECLA
 %type <tree> FONCTION
 %type <tree> LIST_ARGS
@@ -203,6 +215,7 @@ INSTR: EXP SEP          {$$ = $1;}
 | STRUCT_TQ SEP         {$$ = $1;}
 | STRUCT_SI SEP         {$$ = $1;}
 | STRUCT_FAIRE_TQ SEP   {$$ = $1;}
+| STRUCT_POUR SEP       {$$ = $1;}
 | RETOURNER EXP SEP     {$$ = create_return_node($2);}
 | RETOURNER SEP         {$$ = create_return_node(NULL);}
 ;
@@ -227,6 +240,11 @@ LISTE_INSTR TQ EXP                  {$$ = create_do_while_node($3, $5);}
 ;
 
 
+STRUCT_POUR: POUR ID DANS EXP "..." EXP FAIRE SEP_STRUCT
+LISTE_INSTR FPOUR       {$$ = create_for_node($2, $4, $6, $9);}
+;
+
+
 STRUCT_SI: 
  SI EXP ALORS SEP_STRUCT 
  LISTE_INSTR 
@@ -244,6 +262,20 @@ STRUCT_SI:
 int main(int argc, char **argv)
 {
     extern FILE *yyin;
+
+    /*
+     * Bricolage mais fonctionne:
+     * Permet d'obtenir le chemin vers le projet.
+     * Utilisé pour le chemin vers la librairie standard dans preprocessor.c
+     *
+     * __FILE__ contient le chemin du fichier passé en paramètre à gcc.
+     * C'est pour cette raison que l'on donne le chemin complet de parser.y
+     * dans le makefile.
+     * 
+     * La 2ème ligne permet de supprimer le bout de chemin en trop.
+     */
+    strcpy(PROJECT_PATH, __FILE__);
+    PROJECT_PATH[strlen(PROJECT_PATH) - strlen("/src/parser.y")] = '\0';
 
     int opt, dbg = 0;
     char *options = "o:d";
@@ -267,32 +299,31 @@ int main(int argc, char **argv)
     /* Le seul argument sans option doit être le fichier.algo */
     if (optind >= argc)
     {
-        colored_error(RED|BOLD, 0, "erreur fatale:");
-        print_error(F_INPUT_ERROR, " pas de fichier en entrée.\n");
+        fatal_error("pas de fichier en entrée");
+        exit(F_INPUT_ERROR);
     }
 
     src = (char *) malloc(sizeof(char) * (strlen(argv[optind]) + 1));
     check_alloc(src);
     strcpy(src, argv[optind]);
-    
-    /* On essaye d'ouvrir le fichier */
-    yyin = fopen(src, "r");
-    if (yyin == NULL)
-    {
-        colored_error(RED|BOLD, 0, "erreur fatale:");
-        print_error(0, " impossible d'ouvrir ");
-        colored_error(UNDERLINE, 0, "%s", src);
-        print_error(F_INPUT_ERROR, "\n");
-    }
+
+    /* Phase préprocesseur */
+    yyin = preprocessor(src, &line_offset);
 
     /* Initialisation de la table des symboles */
     table = init_symb_table("global");
     abstract_tree = NULL;
+
     yyparse();
     fclose(yyin);
 
+    /* Supprime le fichier intermédiaire utilisé */
+    system("rm __arc_PP.algo_pp");
+
+    /* Analyse sémantique */
     semantic(abstract_tree);
 
+    
     if (dbg)
     {
         ast_to_img(abstract_tree, "ast", "png");
@@ -303,10 +334,8 @@ int main(int argc, char **argv)
     fp_out = fopen(exename, "w");
     if (fp_out == NULL)
     {
-        colored_error(RED|BOLD, 0, "erreur fatale:");
-        print_error(0, " impossible d'ouvrir ");
-        colored_error(UNDERLINE, 0, "%s", exename);
-        print_error(F_INPUT_ERROR, "\n");
+        fatal_error("impossible d'ouvrir ~U%s~E", exename);
+        exit(F_INPUT_ERROR);
     }
     init_ram_os();
     codegen(abstract_tree);
@@ -333,13 +362,13 @@ int main(int argc, char **argv)
     /* Libère la mémoire non-libérée par bison */
     yylex_destroy();    
 
-
     return 0;
 }
 
 
 void yyerror(const char *s)
 {
-    colored_error(RED|BOLD, 0, "%s:%d:%d:", src, yylloc.first_line, yylloc.first_column);
+    int lig = yylloc.first_line - line_offset;
+    colored_error(RED|BOLD, 0, "%s:%d:%d:", src, lig, yylloc.first_column);
     print_error(BISON_ERROR, " %s\n", s);
 }

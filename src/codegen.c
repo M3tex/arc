@@ -59,7 +59,8 @@ void add_instr(instr_ram instr, char t_adr, int adr)
         break;
     
     default:
-        sprintf(buff, "%s %c%%-%dd;\n", instr_str, t_adr, offset);
+        if(t_adr == ' ') sprintf(buff, "%s %%-%dd;\n", instr_str, offset + 1);
+        else sprintf(buff, "%s %c%%-%dd;\n", instr_str, t_adr, offset);
         fprintf(fp_out, buff, adr);
         break;
     }
@@ -83,12 +84,13 @@ void push()
 
 /**
  * @brief Fonction permettant de dépiler.
- * Coûte 1 instruction (voir POP_COST)
+ * Coûte 2 instruction (voir POP_COST)
  * 
  */
 void pop()
 {
     add_instr(INC, ' ', STACK_REG);
+    add_instr(LOAD, '@', STACK_REG);
 }
 
 
@@ -152,6 +154,9 @@ void codegen(ast *t)
         break;
     case do_while_type:
         codegen_do_while(t);
+        break;
+    case for_type:
+        codegen_for(t);
         break;
     case if_type:
         codegen_if(t);
@@ -249,23 +254,23 @@ void codegen_b_op(ast *t)
     switch (t->b_op.ope)
     {
     case '+':
-        pop();
+        add_instr(INC, ' ', STACK_REG);
         add_instr(ADD, '@', STACK_REG);
         break;
     case '-':
-        pop();
+        add_instr(INC, ' ', STACK_REG);
         add_instr(SUB, '@', STACK_REG);
         break;
     case '*':
-        pop();
+        add_instr(INC, ' ', STACK_REG);
         add_instr(MUL, '@', STACK_REG);
         break;
     case '/':
-        pop();
+        add_instr(INC, ' ', STACK_REG);
         add_instr(DIV, '@', STACK_REG);
         break;
     case '%':
-        pop();
+        add_instr(INC, ' ', STACK_REG);
         add_instr(MOD, '@', STACK_REG);
         break;
     default:
@@ -662,6 +667,42 @@ void codegen_do_while(ast *t)
 }
 
 
+void codegen_for(ast *t)
+{
+    for_node node = t->for_n;
+
+    // ToDo: autoriser déclaration de variable dans le POUR ?
+    symbol *tmp = get_symbol(table, c_context, node.id->id.name);
+
+    /* Initialisation de la variable */
+    codegen(node.affect_init);
+
+    /* Vérification de la condition */
+    int jump_back = nb_instr;
+    codegen(node.end_exp);
+
+    int tmp_jmp = tmp->mem_zone == 's' ? 6 : 3;
+    int jumz_adr = nb_instr + node.list_instr->codelen + tmp_jmp;
+    add_instr(JUMZ, ' ', jumz_adr);
+    codegen(node.list_instr);
+
+    /* Incrément de la variable controllant la boucle */
+    int adr = tmp->adr;
+    char adr_type = ' ';
+    if (tmp->mem_zone == 's')
+    {
+        add_instr(LOAD, ' ', STACK_REL_START);
+        add_instr(SUB, '#', adr);
+        add_instr(STORE, ' ', TMP_REG_STK_ADR);
+        adr = TMP_REG_STK_ADR;
+        adr_type = '@';
+    }
+    add_instr(INC, adr_type, adr);
+
+    add_instr(JUMP, ' ', jump_back);
+}
+
+
 void codegen_if(ast *t)
 {
     if_node node = t->if_n;
@@ -788,10 +829,6 @@ void codegen_func_decla(ast *t)
     add_instr(LOAD, '@', STACK_REG);
     add_instr(STORE, ' ', REG_RETURN_ADR);
 
-    /* On remet l'adresse relative là où elle était au début */
-    add_instr(LOAD, ' ', STACK_REG);
-    add_instr(STORE, ' ', STACK_REL_START);
-
     /* On recharge la valeur de retour puis on jump */
     add_instr(LOAD, ' ', REG_RETURN_VALUE);
     push();
@@ -802,9 +839,61 @@ void codegen_func_decla(ast *t)
 
 
 
+
+/**
+ * @brief Génère le code permettant d'appeler une fonction.
+ * 
+ * Il faut empiler un certain nombre d'informations pour les transmettre à la
+ * fonction appelée.
+ * On empilera en 1er le début de pile relatif de la fonction appelante, afin
+ * de pouvoir le remettre dans son état initial.
+ * On empilera ensuite l'adresse de retour pour que la fonction appelée sache où
+ * revenir à la fin de son exécution.
+ * Enfin, on empilera les différents paramètres.
+ * 
+ * 
+ * │                        │
+ * │                        │
+ * ├────────────────────────┤ <── Sommet de la pile
+ * │        param n         │
+ * ├────────────────────────┤
+ * │          ...           │
+ * ├────────────────────────┤
+ * │        param 2         │
+ * ├────────────────────────┤
+ * │        param 1         │
+ * ├────────────────────────┤
+ * │   Adresse de retour    │
+ * ├────────────────────────┤ <── Début de pile relatif de la fonction appelée
+ * │   Début pile relatif   │
+ * │   fonction appelante   │
+ * ├────────────────────────┤
+ * │                        │
+ * │      pile fonction     │
+ * │        appelante       │
+ * │                        │
+ * ├────────────────────────┤ <── Début de pile relatif de la fonction appelante
+ * │                        │
+ * │                        │
+ * │                        │
+ * │ pile avant la fonction │
+ * │       appelante        │
+ * │                        │
+ * │                        │
+ * │                        │
+ * └────────────────────────┘ <── Début de la pile réel
+ */
 void codegen_func_call(ast *t)
 {
     func_call_node node = t->func_call;
+
+    /*
+     * On empile le début relatif de la pile actuel pour le récupérer lorsque
+     * l'on reviendra de la fonction appelée
+     */
+    add_instr(LOAD, ' ', STACK_REL_START);
+    push();
+
 
     /*
      * Le nouveau début relatif de la pile sera au niveau du pointeur de
@@ -818,19 +907,19 @@ void codegen_func_call(ast *t)
 
     /*
      * On empile l'adresse de retour.
-     * -7 pour retirer les 7 premières instructions (dont celles-ci).
-     * +3 pour ajouter les 3 dernières instructions (voir + bas) qui
-     * permettent de tout remettre dans un état cohérent (la fonction
-     * doit donc revenir à la première de ces instructions).
+     * -7 pour retirer les 7 dernières instructions (qui sont celles exécutées)
+     * après la fonction appelée).
+     * -6 pour ajouter le décalage des 5 premières instructions (dont celle-ci)
      */
-    add_instr(LOAD, '#', nb_instr + t->codelen - 4);
+    add_instr(LOAD, '#', nb_instr + t->codelen - 7 - 6 + 1);
     add_instr(STORE, '@', STACK_REG);
     add_instr(DEC, ' ', STACK_REG);
 
     /*
      * On empile les paramètres (on a fait en sorte de faire l'analyse
      * sémantique des paramètres en premier pour les noeuds de
-     * déclaration de fonction).
+     * déclaration de fonction de manière à ce que les adresses relatives soient
+     * bonnes).
      */
     ast *aux = node.params;
     while (aux != NULL)
@@ -852,10 +941,20 @@ void codegen_func_call(ast *t)
     /*
      * Retour de la fonction ici. La fonction aura tout dépilé avant de
      * quitter.
-     * On charge le retour de la fonction qui a été empilé
+     * On dépile le retour de la fonction qui a été empilé en dernier
      */
     pop();
-    add_instr(LOAD, '@', STACK_REG);
+    add_instr(STORE, ' ', TMP_REG_SWP);
+
+    /*
+     * On remet à jour le début relatif de la pile en dépilant la valeur empilée
+     * au tout début.
+     */
+    pop();
+    add_instr(STORE, ' ', STACK_REL_START);
+
+    /* Et on remet enfin la valeur de retour dans l'ACC */
+    add_instr(LOAD, ' ', TMP_REG_SWP);
 }
 
 

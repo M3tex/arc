@@ -64,6 +64,11 @@ COMM     ([#]+.*|\/\/.*|\/\*.*\*\/)
 "SINON"         {return SINON;}
 "FSI"           {return FSI;}
 
+"POUR"          {return POUR;}
+"DANS"          {return DANS;}
+"..."           {return RANGE_SYMB;}
+"FPOUR"         {return FPOUR;}
+
 "RETOURNER"     {return RETOURNER;}
 
 "!="            {return DIFF;}

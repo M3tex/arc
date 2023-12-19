@@ -1,8 +1,13 @@
-ALGO test(a, b)
+ALGO foo(a, b)
+DEBUT
+    RETOURNER a * b + 2
+FIN
+
+
+ALGO bar(a, b)
 VAR x, y
 DEBUT
-    x <- a * 2 + b
-    y <- x / 2
+    x <- foo(a, b)
     RETOURNER x
 FIN
 
@@ -12,6 +17,5 @@ VAR toto <- 42
 PROGRAMME()
 VAR x <- 1, y <- 4
 DEBUT
-    y <- 5
-    ECRIRE(test(x, y))
+    ECRIRE(bar(x, y))
 FIN

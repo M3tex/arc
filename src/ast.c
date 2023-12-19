@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "arc_utils.h"
+#include "parser.h"         /* Pour yyloc */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -21,6 +22,9 @@ ast *init_ast(node_type type)
     t->type = type;
     t->mem_adr = -1;
     t->codelen = 0;
+
+    t->lig = yylloc.first_line - line_offset;
+    t->col = yylloc.first_column;
 
     return t; 
 }
@@ -193,6 +197,7 @@ ast *create_var_decla_node(char *id, ast *expr, ast *next)
 }
 
 
+
 ast *create_prog_root(ast *list_decl, ast *m_prog)
 {
     ast *t = init_ast(prog_type);
@@ -273,6 +278,18 @@ ast *create_if_node(ast *expr, ast *l_instr1, ast *l_instr2)
     t->if_n.expr = expr;
     t->if_n.list_instr1 = l_instr1;
     t->if_n.list_instr2 = l_instr2;
+
+    return t;
+}
+
+
+ast *create_for_node(char *id, ast *start_exp, ast *end_exp, ast *l_instr)
+{
+    ast *t = init_ast(for_type);
+    t->for_n.id = create_id_leaf(id);
+    t->for_n.end_exp = create_b_op_node('<', t->for_n.id, end_exp);
+    t->for_n.list_instr = l_instr;
+    t->for_n.affect_init = create_affect_node(id, start_exp);
 
     return t;
 }
@@ -387,6 +404,26 @@ void free_ast(ast *t)
         free_ast(t->if_n.expr);
         free_ast(t->if_n.list_instr1);
         free_ast(t->if_n.list_instr2);
+        break;
+    case do_while_type:
+        free_ast(t->do_while.expr);
+        free_ast(t->do_while.list_instr);
+        break;
+    case exp_list_type:
+        free_ast(t->exp_list.exp);
+        free_ast(t->exp_list.next);
+        break;
+    case func_call_type:
+        free_ast(t->func_call.func_id);
+        free_ast(t->func_call.params);
+        break;
+    case return_type:
+        free_ast(t->return_n.expr);
+        break;
+    case for_type:
+        free_ast(t->for_n.affect_init);
+        free_ast(t->for_n.list_instr);
+        free_ast(t->for_n.end_exp);
         break;
     case io_type:
         free_ast(t->io.expr);
@@ -649,6 +686,25 @@ static void if_to_dot(ast *t, int c_id, FILE *fp)
 }
 
 
+static void for_to_dot(ast *t, int c_id, FILE *fp)
+{
+    for_node node = t->for_n;
+    static char *fmt = "\"{pour chaque %s|{<s%ds>de|<e%de>à|<i%di>faire}}\"";
+
+    sprintf(buff, fmt, node.id->id.name, c_id, c_id, c_id);
+    fprintf(fp, "\t%d [label=%s];\n", c_id, buff);
+
+    tmp = ast_to_dot(node.affect_init->affect.expr, fp);
+    fprintf(fp, "\t%d:s%ds -- %d;\n", c_id, c_id, tmp);
+
+    tmp = ast_to_dot(node.end_exp->b_op.r_memb, fp);
+    fprintf(fp, "\t%d:e%de -- %d;\n", c_id, c_id, tmp);
+
+    tmp = ast_to_dot(node.list_instr, fp);
+    fprintf(fp, "\t%d:i%di -- %d;\n", c_id, c_id, tmp);
+}
+
+
 
 static void io_to_dot(ast *t, int c_id, FILE *fp)
 {
@@ -773,6 +829,9 @@ int ast_to_dot(ast *t, FILE *fp)
     case while_type:
         while_to_dot(t, c_id, fp);
         break;
+    case for_type:
+        for_to_dot(t, c_id, fp);
+        break;
     case do_while_type:
         do_while_to_dot(t, c_id, fp);
         break;
@@ -820,5 +879,5 @@ void ast_to_img(ast *t, char *filename, char *fmt)
     sprintf(cmd, "dot -T%s tmp.dot -o %s.%s", fmt, filename, fmt);
 
     system(cmd);
-    //system("rm tmp.dot");
+    system("rm tmp.dot");
 }

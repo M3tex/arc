@@ -63,6 +63,9 @@ void semantic(ast *t)
     case if_type:
         semantic_if(t);
         break;
+    case for_type:
+        semantic_for(t);
+        break;
     case decla_type:
         semantic_decla(t);
         break;
@@ -113,10 +116,9 @@ void semantic_nb(ast *t)
 {
     if (t->nb.val > SHRT_MAX || t->nb.val < SHRT_MIN)
     {
-        colored_error(MAGENTA|BOLD, 0, "warning:");
-        print_error(0, " le nombre ");
-        colored_error(BOLD, 0, "%d", t->nb.val);
-        print_error(0, " dépasse la valeur maximale d'un entier.\n");
+        set_error_info(t->lig, t->col);
+        warning("le nombre ~B%d~E dépasse la valeur maximale d'un entier",
+                t->nb.val);
     }
 
     /* 1 LOAD seulement */
@@ -146,7 +148,8 @@ void semantic_id(ast *t)
      */
     
     /* On vérifie que l'identifiant existe */
-    symbol * tmp = get_symbol(table, current_ctx, t->id.name);
+    set_error_info(t->lig, t->col);
+    symbol *tmp = get_symbol(table, current_ctx, t->id.name);
 
     /* Un LOAD (les STORE seront gérés dans les affectations) */
     t->codelen = tmp->mem_zone == 's' ? 4 : 1;
@@ -220,8 +223,9 @@ void semantic_instr(ast *t)
     {
         if (node.next != NULL)
         {
-            colored_error(MAGENTA|BOLD, 0, "warning:");
-            print_error(0, " les instructions après le RETOURNER ne seront jamais exécutées\n");
+            set_error_info(t->lig, t->col);
+            warning("les instructions situées apprès le ~BRETOURNER~E ne "\
+                    "seront jamais exécutées");
         }
         return;
     }
@@ -235,6 +239,7 @@ void semantic_instr(ast *t)
 void semantic_while(ast *t)
 {
     while_node node = t->while_n;
+
     semantic(node.expr);
     semantic(node.list_instr);
 
@@ -242,9 +247,11 @@ void semantic_while(ast *t)
 }
 
 
+
 void semantic_do_while(ast *t)
 {
     do_while_node node = t->do_while;
+
     semantic(node.list_instr);
     semantic(node.expr);
 
@@ -256,12 +263,31 @@ void semantic_do_while(ast *t)
 void semantic_if(ast *t)
 {
     if_node node = t->if_n;
+
     semantic(node.expr);
     semantic(node.list_instr1);
     semantic(node.list_instr2);
 
     t->codelen = node.list_instr1->codelen + node.expr->codelen + 2;
     if (node.list_instr2 != NULL) t->codelen += node.list_instr2->codelen;
+}
+
+
+void semantic_for(ast *t)
+{
+    for_node node = t->for_n;
+    
+    // ToDo: rendre possible la déclaration dans la boucle ?
+    semantic(node.affect_init);
+    semantic(node.end_exp);
+    semantic(node.list_instr);
+
+    set_error_info(t->lig, t->col);
+    symbol *tmp = get_symbol(table, current_ctx, node.id->id.name);
+
+    int cost = tmp->mem_zone == 's' ? 6 : 3;
+    t->codelen = node.affect_init->codelen + node.end_exp->codelen\
+                 + node.list_instr->codelen + cost;
 }
 
 
@@ -273,7 +299,12 @@ void semantic_affect(ast *t)
     semantic(node.expr);
     semantic(node.id);
 
-    symbol * tmp = get_symbol(table, current_ctx, node.id->id.name);
+    set_error_info(t->lig, t->col);
+    symbol *tmp = get_symbol(table, current_ctx, node.id->id.name);
+
+    /* Si déjà init alors il est modifié */
+    tmp->is_modified = tmp->is_init ? 1 : tmp->is_modified;
+    tmp->is_init = 1;
 
     int cost = tmp->mem_zone == 's' ? 6 : 1;
     t->codelen = node.expr->codelen + cost;
@@ -286,8 +317,8 @@ void semantic_io(ast *t)
     io_node node = t->io;
     semantic(node.expr);
 
-    t->codelen = 1;     /* READ ou WRITE */
-    if (node.mode == 'r') return;
+    t->codelen = 1;                 /* READ ou WRITE */
+    if (node.mode == 'r') return;   /* Rien d'autre à faire pour LIRE */
 
     t->codelen += node.expr->codelen;
 }
@@ -330,19 +361,19 @@ void semantic_var_decla(ast *t)
         stack_instr = 5;
     }
 
-
+    set_error_info(t->lig, t->col);
     symbol *new_symb = init_symbol(node.id->id.name, adr, zone, integer);
     add_symbol(table, current_ctx, new_symb);
     semantic(node.expr);
     semantic(node.next);
     semantic(node.id);
 
+    if (node.expr != NULL) new_symb->is_init = 1;
+
 
     /* + 2 pour le STORE et la MAJ du tas/pile */
     if (node.expr != NULL) t->codelen += node.expr->codelen + 1 + stack_instr;
     if (node.next != NULL) t->codelen += node.next->codelen;
-
-    // printf("Déclaration de %s: %ld instructions RAM\n", node.id->id.name, t->codelen);
 }
 
 
@@ -360,8 +391,10 @@ void semantic_func_decla(ast *t)
     int n = node.nb_params;
 
     /* On ajoute l'id de la fonction au contexte actuel */
+    set_error_info(t->lig, t->col);
     symbol *new_symb = init_symbol(node.id->id.name, 0, 'h', func);
     new_symb->size = n;
+    new_symb->is_init = 1;
     add_symbol(table, current_ctx, new_symb);
     semantic(t->func_decla.id);
 
@@ -401,7 +434,7 @@ void semantic_func_decla(ast *t)
     else 
     {
         t->codelen += 1;
-        t->codelen += 12 + 2;
+        t->codelen += 10 + 2;
         if (!new_symb->has_return) t->codelen += 1;
     }
 
@@ -432,8 +465,10 @@ void semantic_func_call(ast *t)
     /* On vérifie que le nombre de paramètre est le bon */
     if (nb_params != tmp->size)
     {
-        colored_error(RED|BOLD, 0, "erreur fatale:");
-        print_error(1, " le nombre de paramètres est incorrect (%d donnés, %d attendus)\n", nb_params, tmp->size);
+        set_error_info(t->lig, t->col);
+        fatal_error("nombre de paramètres incorrect (%d passés, %d attendus)",
+                    nb_params, tmp->size);
+        exit(1);
     }
     
     /* Analyse sémantique des paramètres passés */
@@ -446,7 +481,7 @@ void semantic_func_call(ast *t)
      * On ajoute également le coût de la copie des paramètres dans la
      * pile. On va empiler les paramètres à la suite dans la pile.
      */
-    t->codelen = 7 + node.params->codelen + 2 * nb_params + 3;
+    t->codelen = 18 + node.params->codelen + 2 * nb_params;
 }
 
 
@@ -462,8 +497,9 @@ void semantic_return(ast *t)
     if (strcmp(current_ctx, "global") == 0 
         || strcmp(current_ctx, "PROGRAMME") == 0)
     {
-        colored_error(RED|BOLD, 0, "erreur fatale:");
-        print_error(1, " instruction 'RETOURNER' utilisée au mauvais endroit\n");
+        set_error_info(t->lig, t->col);
+        fatal_error("~BRETOURNER~E utilisé en dehors d'une fonction");
+        exit(1);
     }
 
     t->codelen = 1;

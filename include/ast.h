@@ -14,6 +14,7 @@
 
 
 extern char *src;
+extern int line_offset;
 
 /* Besoin pour les noeuds */
 typedef struct ast ast;
@@ -23,7 +24,7 @@ typedef enum {
     nb_type, b_op_type, u_op_type, id_type, affect_type, instr_type,
     decla_type, var_decla_type, prog_type, func_decla_type, while_type,
     if_type, io_type, func_call_type, exp_list_type, do_while_type,
-    return_type
+    return_type, for_type
 } node_type;
 
 
@@ -137,10 +138,20 @@ typedef struct {
 } return_node;
 
 
+typedef struct {
+    ast *id;
+    ast *end_exp;
+    ast *list_instr;
+    ast *affect_init;
+} for_node;
+
+
 typedef struct ast {
     node_type type;
     int mem_adr;
     size_t codelen;
+    int lig;
+    int col;
     union {
         nb_leaf nb;
         id_leaf id;
@@ -159,6 +170,7 @@ typedef struct ast {
         do_while_node do_while;
         if_node if_n;
         io_node io;
+        for_node for_n;
     };
 } ast;
 
@@ -187,6 +199,7 @@ ast *create_prog_root(ast *list_decl, ast *m_prog);
 ast *create_while_node(ast *expr, ast *l_instr);
 ast *create_do_while_node(ast *l_instr, ast *expr);
 ast *create_if_node(ast *expr, ast *l_instr1, ast *l_instr2);
+ast *create_for_node(char *id, ast *start_exp, ast *end_exp, ast *l_instr);
 
 
 int ast_to_dot(ast *t, FILE *fp);

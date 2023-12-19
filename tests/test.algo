@@ -1,29 +1,18 @@
-/* Calcule x^n */
-ALGO puissance(x, n)
-VAR y <- 1
+ALGO factorielle(n)
+VAR res <- 1
 DEBUT
-    SI n = 0 ALORS
-        RETOURNER 1
+    SI n > 1 ALORS
+        res <- n * factorielle(n - 1)
     FSI
-    
-    TQ n > 1 FAIRE
-        SI n % 2 = 1 ALORS
-            y <- y * x
-            n <- n - 1
-        FSI
-        x <- x * x
-        n <- n / 2
-    FTQ
-
-    RETOURNER y * x
+    RETOURNER res
 FIN
 
 
-
 PROGRAMME()
-VAR a, n
+VAR n, i
 DEBUT
-    a <- LIRE()
     n <- LIRE()
-    ECRIRE(puissance(a, n) * 3)
+    POUR i DANS 1...n + 1 FAIRE
+        ECRIRE(factorielle(i))
+    FPOUR
 FIN

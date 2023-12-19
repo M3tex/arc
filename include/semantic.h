@@ -25,6 +25,7 @@ void semantic_func_call(ast *t);
 void semantic_while(ast *t);
 void semantic_do_while(ast *t);
 void semantic_if(ast *t);
+void semantic_for(ast *t);
 void semantic_return(ast *t);
 void semantic_exp_list(ast *t);
 

@@ -10,7 +10,7 @@
 
 /* Coût des opérations sur la pile (en nb d'instructions RAM) */
 #define PUSH_COST 2
-#define POP_COST 1
+#define POP_COST 2
 #define PEEK_COST 1
 
 
@@ -67,6 +67,7 @@ void codegen_return(ast *t);
 void codegen_while(ast *t);
 void codegen_do_while(ast *t);
 void codegen_if(ast *t);
+void codegen_for(ast *t);
 
 void add_instr(instr_ram instr, char t_adr, int adr);
 

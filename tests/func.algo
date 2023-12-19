@@ -2,11 +2,12 @@ ALGO foo(a, b)
 VAR x
 DEBUT
     x <- a + b
+    RETOURNER x
 FIN
 
 
 PROGRAMME()
 VAR a <- 1, b <- 3
 DEBUT
-    foo(a, b)
+    ECRIRE(foo(a, b) * 2)
 FIN

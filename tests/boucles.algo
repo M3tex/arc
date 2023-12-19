@@ -1,10 +1,10 @@
 
 
 PROGRAMME()
-VAR i <- 0
+VAR i <- 0, n <- 10
 DEBUT
     /* Test de la boucle tant que (<=> while) */
-    TQ i <= 10 FAIRE
+    TQ i <= n FAIRE
         i <- i + 1
     FTQ
 
@@ -13,5 +13,8 @@ DEBUT
         i <- i - 1
     TQ i >= 0
 
-    # ToDo: boucle POUR i dans 2...10 FAIRE ... FPOUR
+    /* Test de la boucle pour (<=> for i in range python) */
+    POUR i DANS 0...n FAIRE
+        ECRIRE(i)
+    FPOUR
 FIN 
