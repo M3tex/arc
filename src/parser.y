@@ -24,7 +24,7 @@ symb_table table = NULL;
 
 
 char *src = NULL;
-char *exename = "a.out";
+char *exename = NULL;
 char *include_path = NULL;
 
 int line_offset = 0;
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
     PROJECT_PATH[strlen(PROJECT_PATH) - strlen("/src/parser.y")] = '\0';
 
     int opt, dbg = 0;
-    char *options = "o:d";
+    char *options = "o:dI:";
     while ((opt = getopt(argc, argv, options)) != -1)
     {
         switch (opt)
@@ -290,6 +290,11 @@ int main(int argc, char **argv)
             break;
         case 'd':
             dbg = 1;
+            break;
+        case 'I':
+            include_path = (char *) malloc(sizeof(char) * (strlen(optarg) + 1));
+            check_alloc(include_path);
+            strcpy(include_path, optarg);
             break;
         default:
             break;
@@ -331,6 +336,13 @@ int main(int argc, char **argv)
     }
 
 
+    if (exename == NULL)
+    {
+        exename = (char *) malloc(sizeof(char) * (strlen("a.out") + 1));
+        check_alloc(exename);
+        strcpy(exename, "a.out");
+    }
+
     fp_out = fopen(exename, "w");
     if (fp_out == NULL)
     {
@@ -356,8 +368,10 @@ int main(int argc, char **argv)
 
 
     free(src);
+    free(exename);
     free_ast(abstract_tree);
-
+    
+    if (include_path != NULL) free(include_path);
 
     /* Libère la mémoire non-libérée par bison */
     yylex_destroy();    

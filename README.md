@@ -103,5 +103,13 @@ DEBUT
 FIN
 ```
 
+## Fonctionnalités ajoutées
+### Inclure d'autres `fichier.algo`
+Ajout d'une phase pré-processeur au compilateur. Les instruction pré-processeurs
+sont préfixées de `%`.
+
+Pour inclure un autre fichier: `%INCLURE fichier.algo`.\
+Le `fichier.algo` sera d'abord cherché dans le chemin d'inclusion spécifié via
+l'option `-I`, puis dans le chemin de la librairie standard.
 
 [RAM]: https://zanotti.univ-tln.fr/ALGO/I31/MachineRAM.html

@@ -11,7 +11,7 @@ C_LIBS := -lfl
 
 # parser.c et lexer.c sont générés par bison et flex.
 C_FILES := $(wildcard $(SRC)/*.c) $(SRC)/parser.c $(SRC)/lexer.c
-HEADERS := $(wildcard $(INCLUDE)/*.h)
+HEADERS := $(wildcard $(INCLUDE)/*.h) $(INCLUDE)/parser.h
 OBJS := $(patsubst $(SRC)/%.c, $(BUILD)/%.o, $(C_FILES))
 
 
@@ -31,7 +31,7 @@ $(BUILD)/%.o: $(SRC)/%.c $(HEADERS)
 
 
 # Règles pour le parser et le lexer
-$(SRC)/parser.c $(INCLUDE)/parser.h: $(SRC)/parser.y
+$(SRC)/parser.c $(INCLUDE)/parser.h: $(CURDIR)/src/parser.y
 	bison -d -o $(SRC)/parser.c $< -Wcounterexamples
 	mv $(SRC)/parser.h $(INCLUDE)
 

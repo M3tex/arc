@@ -1,0 +1,24 @@
+/* Librairie standard contenant les fonction utilitaires */
+
+/* Renvoie le min de a et b */
+ALGO min(a, b)
+VAR c <- a
+DEBUT
+    SI b < a ALORS
+        c <- b
+    FSI
+
+    RETOURNER c
+FIN
+
+
+/* Renvoie le max de a et b */
+ALGO max(a, b)
+VAR c <- a
+DEBUT
+    SI b > a ALORS
+        c <- b
+    FSI
+
+    RETOURNER c
+FIN

@@ -1,0 +1,13 @@
+/* Calcule le PGCD de a et de b */
+ALGO pgcd(a, b)
+VAR tmp
+DEBUT
+    TQ b != 0 FAIRE
+        tmp <- b
+        b <- a % b
+        a <- tmp
+    FTQ
+
+    RETOURNER a
+FIN
+//
