@@ -1,3 +1,6 @@
+// Utilisé pour l'inclusion de fichier, n'a donc pas de PROGRAMME et ne doit
+// PAS être compilé seul
+
 /* Calcule le PGCD de a et de b */
 ALGO pgcd(a, b)
 VAR tmp
@@ -10,4 +13,9 @@ DEBUT
 
     RETOURNER a
 FIN
-//
+
+
+ALGO ppcm(a, b)
+DEBUT
+    RETOURNER a * b / pgcd(a, b)
+FIN

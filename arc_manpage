@@ -1,0 +1,64 @@
+.\" Manpage for arc.
+.\" Contact mathis-sedkaoui@etud.univ-tln.fr to correct errors or typos.
+.TH ARC 1 "17 December 2023" "0.1"
+.SH NAME
+arc \- Algo-RAM Compiler
+.SH SYNOPSIS
+arc [\fB-o\fR \fIoutfile\fR] [\fB-d\fR | \fB--debug\fR]
+    [\fB--print-tree\fR] [\fB--print-table\fR] [\fB-I\fR \fIdir\fR] 
+    [\fB--mem-size\fR \fIsize\fR] \fIinfile\fR
+.SH DESCRIPTION
+arc is a compiler developed as a final project for the "Language theory and 
+compilation (I53)" module at the University of Toulon.
+It is used to compile algorithmic pseudocode into a \fIRandom-Access-Machine\fR 
+(\fBRAM\fR) executable code.
+.PP
+The RAM is very similar to the counter machine but with the added capability of 
+\'indirect addressing\' of its registers. Like the counter machine, the RAM has 
+its instructions in the finite-state portion of the machine
+(Harvard architecture). It is an example of the so-called von Neumann 
+architecture and is closest to the common notion of a computer (Wikipedia).
+The set of instructions used can be found here:
+.sp
+https://zanotti.univ-tln.fr/ALGO/I31/MachineRAM.html
+
+.SH OPTIONS
+.PP
+.IP "\fB\-o\fR \fIfile\fR" 4
+.IX Item "-o file"
+Allows to specify an output file.
+.sp
+If \fB-o\fR is not specified, the default ouput file will be \fIa.out\fR
+.IP "\fB\-I\fR \fIdir\fR" 4
+.IX Item "-I dir"
+Used to specify the directory containing the included files.
+.sp
+If \fB\-I\fR is specified, the included files will first be searched for in the
+given directory, and if they are not found, they will be searched for in the 
+standard directory for libstd.
+.sp
+.IP "\fB\--draw-tree\fR" 4
+.IX Item "--draw-tree"
+Outputs the abstract syntaxic tree (\fIast.png\fR) using graphviz 
+https://graphviz.org/
+.sp
+.IP "\fB\--draw-table\fR" 4
+.IX Item "--draw-table"
+Outputs the symbol table (\fItable.png\fR) using graphviz: https://graphviz.org/
+.sp
+.IP "\fB--mem-size\fR \fIsize\fR" 4
+.IX Item "--mem-size size"
+Sets the maximum available adress (used to determine the adress of the stack), 
+65535 by default.
+.sp
+.IP "\fB-d\fR, \fB--debug\fR" 4
+.IX Item "-d, --debug"
+Shows debug informations (compares the calculated codelen and the "real" one (
+number of lines in the exefile)).
+.SH SEE ALSO
+dot(1)
+.SH BUGS
+During the printing of warnings and errors, the error's column location might be
+wrong.
+.SH AUTHOR
+Mathis Sedkaoui (mathis-sedkaoui@etud.univ-tln.fr)

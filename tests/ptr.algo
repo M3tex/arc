@@ -1,0 +1,18 @@
+/* Programme de test des pointeurs */
+
+ALGO echanger_int(@a, @b)
+VAR c <- *a;
+DEBUT
+    *a <- *b
+    *b <- c
+FIN
+
+
+PROGRAMME()
+VAR x <- 10, y <- 2, @p
+DEBUT
+    p <- @x
+    echanger_int(p, @y)
+    ECRIRE(x)
+    ECRIRE(y)
+FIN

@@ -86,8 +86,14 @@ static void do_preproc_action(FILE *dest, char *line, size_t line_nb, int *nb)
 {
     /* On récupère le nom du fichier.algo */
     char buff[4096];
-    set_error_info(line_nb, 1);
-    if (sscanf(line, " %% INCLURE %s \n", buff) != 1)
+    YYLTYPE err;
+    err.first_line = line_nb;
+    err.first_column = 1;
+    err.last_line = line_nb;
+    err.last_column = strlen(line);
+
+    set_error_info(err);
+    if (sscanf(line, " $ INCLURE %s \n", buff) != 1)
     {
         fatal_error("instuction pré-processeur invalide: ~B%s~E", line);
         exit(1);
@@ -134,7 +140,7 @@ FILE *preprocessor(char *src, int *nb_inserted)
     }
 
     /* Fichier qui sera analysé etc. (écriture + lecture) */
-    FILE *pp_f = fopen("__arc_PP.algo_pp", "w+");
+    FILE *pp_f = fopen("./__arc_PP.algo_pp", "w+");
     check_alloc(pp_f);
 
     /* Parcours des lignes */
@@ -145,9 +151,9 @@ FILE *preprocessor(char *src, int *nb_inserted)
 
     while (fgets(line, 4095, og_file) != NULL)
     {
-        /* Si on lit un '%' (marqueur d'opérations préprocesseur) */
-        for (i = 0; line[i] != '\0' && line[i] != '%'; i++);
-        if (line[i] == '%') do_preproc_action(pp_f, line, num_lig, nb_inserted);
+        /* Si on lit un '$' (marqueur d'opérations préprocesseur) */
+        for (i = 0; line[i] != '\0' && line[i] != '$'; i++);
+        if (line[i] == '$') do_preproc_action(pp_f, line, num_lig, nb_inserted);
         else fwrite(line, sizeof(char), strlen(line), pp_f);
         num_lig++;
     }

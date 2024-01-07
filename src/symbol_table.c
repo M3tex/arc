@@ -62,10 +62,10 @@ symbol *init_symbol(const char *id, int adr, char zone, type_symb t)
     new_symb->size = 1;     // ! pour fonctions
     new_symb->type = t;
     new_symb->mem_zone = zone;
-    new_symb->has_return = 0;   /* Pour les fonctions */
     new_symb->is_used = 0;      /* Pour les warnings */
     new_symb->is_modified = 0;
     new_symb->is_init = 0;
+    new_symb->is_checked = 0;
     strcpy(new_symb->id, id);
 
     return new_symb;
@@ -131,7 +131,6 @@ symbol *get_symbol(symb_table table, const char *ctx, const char *id)
     }
 
 
-    res->is_used = 1;
     return res;
 }
 
@@ -178,8 +177,6 @@ symbol *add_symbol(symb_table table, const char *c_name, symbol *s)
 
     return s;
 }
-
-
 
 
 

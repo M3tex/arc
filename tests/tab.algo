@@ -1,0 +1,10 @@
+/* 
+ * Test des tableaux
+ */
+
+PROGRAMME()
+VAR a <- 1, toto[3] <- [1, 2, 3, 5], b <- 2, @t
+DEBUT
+    ECRIRE(a + toto[toto[0] + 1])
+    ECRIRE(toto)
+FIN

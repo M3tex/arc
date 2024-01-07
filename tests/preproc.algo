@@ -1,0 +1,13 @@
+/* 
+ * Test de l'inclusion de fichier (attention, il faut ajouter le flag
+ * `-I ./tests` à la compilation pour test_lib.algo)
+ */
+$ INCLURE test_lib.algo
+$ INCLURE utilitaires.algo
+
+PROGRAMME()
+VAR x <- 7, y <- 25
+DEBUT
+    ECRIRE(min(x, y))
+    ECRIRE(pgcd(x, y))
+FIN

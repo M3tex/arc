@@ -1,3 +1,4 @@
+/* Test de la récursivité */
 ALGO factorielle(n)
 VAR res <- 1
 DEBUT
@@ -8,9 +9,12 @@ DEBUT
 FIN
 
 
+/* La bande de sortie doit-être: [1, 2, 6, 24, 120, 720, 5040] pour n = 7 */
 PROGRAMME()
-VAR n
+VAR n, i
 DEBUT
     n <- LIRE()
-    ECRIRE(factorielle(n))
+    POUR i DANS 1...n + 1 FAIRE
+        ECRIRE(factorielle(i))
+    FPOUR
 FIN

@@ -1,18 +1,19 @@
-ALGO factorielle(n)
-VAR res <- 1
-DEBUT
-    SI n > 1 ALORS
-        res <- n * factorielle(n - 1)
-    FSI
-    RETOURNER res
-FIN
-
+VAR i, j, n
+VAR cpt <- 0
 
 PROGRAMME()
-VAR n, i
+# Somme des n premiers entiers n(n+1)/2
 DEBUT
     n <- LIRE()
-    POUR i DANS 1...n + 1 FAIRE
-        ECRIRE(factorielle(i))
-    FPOUR
+    i <- 0
+    TQ i < n FAIRE
+        j <- i
+        TQ j < n FAIRE
+            cpt <- cpt + 1
+            j <- j + 1
+        FTQ
+        i <- i+1
+        1+1
+    FTQ
+    ECRIRE(cpt)
 FIN

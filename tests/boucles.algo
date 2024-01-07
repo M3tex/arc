@@ -1,8 +1,9 @@
-
-
+/* Test des différentes boucles implémentées */
 PROGRAMME()
-VAR i <- 0, n <- 10
+VAR i <- 0, n
 DEBUT
+    n <- LIRE()     // Attention la bande d'entrée ne doit pas être vide
+    
     /* Test de la boucle tant que (<=> while) */
     TQ i <= n FAIRE
         i <- i + 1

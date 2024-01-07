@@ -6,7 +6,8 @@
 
 
 
-struct error_info ERROR_INFO;
+struct error_info INFOS;
+extern FILE *yyin;
 
 
 /**
@@ -107,13 +108,81 @@ static char *ansi_fmt(const char *fmt)
 }
 
 
+/**
+ * @brief Retourne la nième ligne du fichier passé en paramètre
+ * 
+ * @param fp 
+ * @param n 
+ * @return char* 
+ */
+static char *get_nth_line(FILE *fp, int n)
+{
+    long old_cur = ftell(fp);
+    rewind(fp);
 
+    int i = 0;
+    char *res = (char *) calloc(4096, sizeof(char));
+    check_alloc(res);
+
+    while (i < n)
+    {
+        fgets(res, 4095, fp);
+        i++;
+    }
+
+    fseek(fp, old_cur, SEEK_SET);
+    return res;
+}
+
+
+
+/**
+ * @brief Affiche une erreur formatée, préfixée du message "erreur fatale" en
+ * rouge et en gras.
+ * Si set_error_infos a été utilisée, affiche la position de l'erreur (BUG)
+ * 
+ * @param fmt 
+ * @param ... 
+ */
 void fatal_error(char *fmt, ...)
 {
-    if (ERROR_INFO.has_info)
+    if (INFOS.has_info)
     {
-        fprintf(stderr, "\033[1m%s:%d:%d:\033[0m ", src, ERROR_INFO.lig,
-                ERROR_INFO.col);
+        // printf("first column: %d, last: %d\n", INFOS.loc.first_column, INFOS.loc.last_column);
+        fprintf(stderr, "\033[1m%s:%d:%d:\033[0m ", src, INFOS.loc.first_line,
+                INFOS.loc.first_column);
+        
+        fprintf(stderr, "\033[31;1merreur fatale:\033[0m ");
+    
+        /* On se le permet car fmt n'est pas réutilisé après */
+        fmt = ansi_fmt(fmt);
+
+        va_list arglist;
+        va_start(arglist, fmt);
+        vfprintf(stderr, fmt, arglist);
+        va_end(arglist);
+
+        fprintf(stderr, "\n");
+        free(fmt);
+
+        char *buff = get_nth_line(yyin, INFOS.loc.first_line);
+
+        char line_info[128];
+        sprintf(line_info, " %d |", INFOS.loc.first_line);
+
+        fprintf(stderr, "%s %s", line_info, buff);
+        for (size_t i = 0; i < strlen(line_info) - 1; i++) fprintf(stderr, " ");
+        fprintf(stderr, "|");
+
+        int i;
+        for (i = 0; i < INFOS.loc.first_column; i++) fprintf(stderr, " ");
+        fprintf(stderr, "\033[31m^");
+        for (i = i + 1; i < INFOS.loc.last_column; i++) fprintf(stderr, "~");
+        fprintf(stderr, "\033[0m\n");
+        
+        free(buff);
+        unset_error_info();
+        return;
     }
 
     fprintf(stderr, "\033[31;1merreur fatale:\033[0m ");
@@ -133,10 +202,43 @@ void fatal_error(char *fmt, ...)
 
 void warning(char *fmt, ...)
 {
-    if (ERROR_INFO.has_info)
+    if (INFOS.has_info)
     {
-        fprintf(stderr, "\033[1m%s:%d:%d:\033[0m ", src, ERROR_INFO.lig,
-                ERROR_INFO.col);
+        // printf("first column: %d, last: %d\n", INFOS.loc.first_column, INFOS.loc.last_column);
+        fprintf(stderr, "\033[1m%s:%d:%d:\033[0m ", src, INFOS.loc.first_line,
+                INFOS.loc.first_column);
+        
+        fprintf(stderr, "\033[35;1mwarning:\033[0m ");
+    
+        /* On se le permet car fmt n'est pas réutilisé après */
+        fmt = ansi_fmt(fmt);
+
+        va_list arglist;
+        va_start(arglist, fmt);
+        vfprintf(stderr, fmt, arglist);
+        va_end(arglist);
+
+        fprintf(stderr, "\n");
+        free(fmt);
+
+        char *buff = get_nth_line(yyin, INFOS.loc.first_line);
+
+        char line_info[128];
+        sprintf(line_info, " %d |", INFOS.loc.first_line);
+
+        fprintf(stderr, "%s %s", line_info, buff);
+        for (size_t i = 0; i < strlen(line_info) - 1; i++) fprintf(stderr, " ");
+        fprintf(stderr, "|");
+
+        int i;
+        for (i = 0; i < INFOS.loc.first_column; i++) fprintf(stderr, " ");
+        fprintf(stderr, "\033[35m^");
+        for (i = i + 1; i < INFOS.loc.last_column; i++) fprintf(stderr, "~");
+        fprintf(stderr, "\033[0m\n");
+        
+        free(buff);
+        unset_error_info();
+        return;
     }
 
     fprintf(stderr, "\033[35;1mwarning:\033[0m ");
@@ -154,18 +256,15 @@ void warning(char *fmt, ...)
 }
 
 
-void set_error_info(int l, int c)
+void set_error_info(YYLTYPE infos)
 {
-    ERROR_INFO.has_info = 1;
-    ERROR_INFO.lig = l;
-    ERROR_INFO.col = c;
+    INFOS.loc = infos;
+    INFOS.has_info = 1;
 }
 
 void unset_error_info()
 {
-    ERROR_INFO.has_info = 0;
-    ERROR_INFO.lig = 0;
-    ERROR_INFO.col = 0;
+    INFOS.has_info = 0;
 }
 
 

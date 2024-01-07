@@ -27,7 +27,7 @@ ALGO puissance_mod(x, n, m)
 VAR y <- x
 DEBUT
     SI n = 0 ALORS
-        RENVOYER 1
+        RETOURNER 1
     FSI
 
     TQ n != 0 FAIRE
@@ -37,7 +37,7 @@ DEBUT
         FSI
     FTQ
 
-    RENVOYER y
+    RETOURNER y
 FIN
 
 
@@ -45,9 +45,9 @@ FIN
 ALGO factorielle(n)
 DEBUT
     SI n = 1 ALORS
-        RENVOYER 1
+        RETOURNER 1
     SINON
-        RENVOYER n * factorielle(n - 1)
+        RETOURNER n * factorielle(n - 1)
     FSI
 FIN
 
@@ -63,12 +63,25 @@ DEBUT
         a <- tmp
     FTQ
 
-    RENVOYER a
+    RETOURNER a
 FIN
+
 
 /* Calcule le PPCM de a et de b */
 ALGO ppcm(a, b)
 DEBUT
-    RENVOYER a * b / pgcd(a, b)
+    RETOURNER a * b / pgcd(a, b)
 FIN
 
+
+/* Calcule la valeur entière du log à base b de x */
+ALGO log_b(x, b)
+VAR res <- 1
+DEBUT
+    TQ x > 0 FAIRE
+        x <- x / b
+        res <- res + 1
+    FTQ
+
+    RETOURNER res
+FIN

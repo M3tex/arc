@@ -1,21 +1,25 @@
-ALGO foo(a, b)
+/* Programme de test des fonctions */
+ALGO foo(a)
 DEBUT
-    RETOURNER a * b + 2
+    RETOURNER a * 2
 FIN
-
 
 ALGO bar(a, b)
-VAR x, y
+VAR c
 DEBUT
-    x <- foo(a, b)
-    RETOURNER x
+    c <- a + foo(b)
+    RETOURNER c
+FIN
+
+ALGO baz(a, b, c)
+DEBUT
+    ECRIRE(bar(b, c) + a)
 FIN
 
 
-VAR toto <- 42
-
 PROGRAMME()
-VAR x <- 1, y <- 4
+VAR a <- 23, b <- 3
 DEBUT
-    ECRIRE(bar(x, y))
+    /* Doit afficher 42 */
+    baz(a, 7, foo(b))
 FIN

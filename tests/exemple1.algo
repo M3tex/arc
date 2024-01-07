@@ -1,6 +1,4 @@
 PROGRAMME()
-VAR x
 DEBUT
-	# Ceci est un test Yohan va potentiellement tout casser
-	x <- 0 < (3 > 5)
+	(12+3)*4 - 7/2*(1-8)
 FIN

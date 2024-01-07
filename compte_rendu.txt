@@ -1,0 +1,192 @@
+SEDKAOUI Mathis			   Compte-rendu projet I53			     L3 informatique
+
+
+
+Important: un avertissement concernant les tests est présent au début de la
+section "Tests".
+
+
+Fonctionnement du programme
+La compilation se déroule en plusieurs phases:
+	1/ Phase pré-processeur: le fichier source est parcouru à la recherche de
+	la seule instruction pré-processeur supportée: $ INCLURE <nom_fichier>.
+	Si cette instruction est présente, elle sera remplacée par l'intégralité du
+	fichier qu'elle indique (il est donc primordial que ce fichier ne possède
+	pas de fonction principale). Le fichier sera d'abord cherché dans le
+	répertoire éventuellement spécifié via l'option -I, puis dans le chemin de
+	la "librairie" standard (./libstd depuis le répertoire où est situé ce
+	fichier).
+	Limitation: je n'ai pas implémenté de header guard par défaut (cela
+	s'implémenterai assez facilement via une liste chaînée contenant les chemins
+	des fichiers déjà inclus, il suffirait alors de la parcourir à chaque fois
+	pour déterminer s'il faut inclure ou non le fichier)
+
+	2/ Analyse lexicale / syntaxique à l'aide de flex / bison: le programme
+	reconnaît l'entièreté des constructions demandées dans le sujet. J'ai ajouté
+	un séparateur additionnel (';') pour pouvoir placer les instructions sur une
+	même ligne si souhaité. J'ai également ajouté d'autres constructions (voir +
+	bas).
+	La construction de l'arbre se fait au cours de 
+	l'analyse syntaxique.
+
+	3/ Construction de l'arbre syntaxique abstrait: les noeuds nécessitants une
+	explicitation sont commentés dans ast.h
+	
+	4/ Analyse sémantique: Permet de remplir la table des symboles, de détecter
+	les erreurs sémantiques et de préparer le travail de génération de code.
+
+	"Limitation" sur la partie sémantique: j'ai voulu faire un affichage propre
+	comme gcc sur les erreurs, mes noeuds de l'ASA récupèrent donc le yylloc.
+	En revanche, sur les règles syntaxique contenant plusieurs tokens, le yylloc
+	peut être faux puisque je n'en récupère qu'un (par exemple pour une
+	déclaration de variable, les erreurs peuvent être à 2 endroits: le nom de la
+	variable, ou l'expression affectée, mais je n'ai qu'un seul yylloc dans la
+	structure). Les informations de colonnes peuvent donc être erronées sur
+	certaines erreurs / warning.
+	Je pense avoir trouvé une solution mais qui est très lourde (voir l'action
+	pour les prototypes).
+
+	5/ Génération de code.
+
+Diverses options de compilation sont disponibles, il est par exemple possible de
+visualiser l'arbre syntaxique abstrait et la table des symboles en utilisant 
+respectivement les options --draw-tree et --draw-table (il faut avoir dot
+d'installé: https://graphviz.org/download/)
+
+Un manuel est disponible en faisant `man ./arc_manpage`
+
+
+Structure de la mémoire en machine RAM:
+	┌───────────────────┐ <── 0
+	│        ACC        │
+	├───────────────────┤ <── 1
+	│                   │
+	│       ramOS       │
+	│                   │
+	├───────────────────┤ <── RAM_OS_SIZE
+	│                   │
+	│ mémoire  statique │
+	│                   │
+	├───────────────────┤ <── Début tas
+	│                   │
+	│                   │
+	│        tas        │
+	│                   │
+	│                   │
+	├────────────────┬──┤ <── HEAP_REG (pointeur du tas)
+	│                ▼  │
+	│                   │
+	│                   │
+	│    espace libre   │
+	│                   │
+	│                   │
+	│                ▲  │
+	├────────────────┴──┤ <── STACK_REG (pointeur de la pile)
+	│                   │
+	│                   │
+	│        pile       │
+	│                   │
+	│                   │
+	└───────────────────┘ <── Début pile
+
+
+Choix de conception:
+	J'ai fais le choix de refaire entièrement ce qui était fourni au début du
+	projet, en me basant bien évidemment dessus, afin d'être sûr d'en comprendre
+	parfaitement le fonctionnement.
+	J'ai totalement modifié l'affichage de l'arbre et de la table des symboles
+	en utilisant graphviz.
+	J'ai ajouté diverses fonctions utilitaires (arc_utils.[ch])
+	Je n'ai pas fait de choix particuliers pour la grammaire, je pense que
+	j'aurais pû gérer autrement les pointeurs / tableaux pour rendre possible
+	les tableaux à plusieurs dimensions. Je les ai ajouté à la fin du projet, ce
+	qui m'a forcé à adapter le code existant aux tableaux/pointeurs, alors que
+	si je les avais pris en compte dès le début j'aurais pu les implémenter +
+	proprement (et facilement).
+
+
+Type de programmes gérés par le compilateur:
+	Le compilateur gère l'entièreté des programmes demandés:
+		- Expressions arithmétiques / booléenne (0 est considéré comme faux, 
+		tout ce qui est différent de 0 est considéré comme vrai).
+		- Gestion des variables (affectation et utilisation au sein des
+		expressions)
+		- Boucle TQ
+		- SI
+		- Gestion des tableaux avec allocation statique et dynamique.
+		- Gestion des fonctions
+		- Opérations d'entrées / sorties (LIRE et ECRIRE)
+		- Gestion des pointeurs
+		- Opérateur d'adresse `@` (coquille dans le sujet, il est mentionné
+		comme opérateur de déréférencement).
+		- Commentaires (#, // et /* */)
+		- etc.
+
+	De plus j'ai rajouté plusieurs fonctionnalités:
+		- Le $ INCLURE comme mentionné + haut
+		- La boucle FAIRE ... TQ (équivalent au do while en C)
+		- La boucle POUR var DANS debut...fin (équivalent au for var in range en
+		python). var prenant les valeurs dans l'intervale [debut, fin[
+		- La gestion de la récursivité (je ne sais pas si c'était demandé).
+		- La gestion des prototypes de fonctions. La syntaxe est la suivante:
+		PROTO nom_fonction(param_1, ...)
+		- L'opérateur de déréférencement * (idem qu'en C)
+
+
+	notes:
+		Pour le SI, il supporte les SI ... ALORS ... FSI ou bien les 
+		SI ... ALORS ... SINON ..., mais il n'est pas possible de faire des 
+		SINON SI ... (il suffirait de rajouter une structure de liste dans le
+		noeud SI pour le gérer mais j'ai préféré me concentrer sur le reste).
+
+
+
+
+Tests:
+	IMPORTANT: Le simulateur de mr. Zanotti réalise un troncage modulo 32768.
+	La taille de la mémoire considérée par défaut par mon compilateur est de 
+	2^16 - 1: Nos nombres doivent être sur 16bits, une adresse < 0 n'a pas de
+	sens, j'ai donc fait le choix d'avoir des adresses sur 16 bits non-signés.
+
+	Je n'ai eu aucun problème en testant tous les fichiers de tests sur le
+	simulateur de mr Zanotti, mais j'ai ajouté une option permettant de le faire
+	afin d'éviter tout problème.
+	(La pile commençant à 2^16 - 1, soit 32767 si on tronque, il faudrait que la
+	taille cumulée de la pile et du tas vale + de 30 000 pour avoir des erreurs
+	qui ne seraient pas arrivées sans le troncage).
+
+	Je vous conseille donc de compiler avec --mem-size=32767 si vous utilisez le
+	simulateur de mr Zanotti et que vos programmes de tests sont coûteux en 
+	mémoire (ainsi les potentielles erreurs que vous aurez ne seront pas dûes au 
+	troncage mais au manque de vrai OS pour délimiter les zones mémoires).
+
+
+	Vous trouverez plusieurs fichiers de tests dans le répertoire `tests`, qui
+	contient également les 4 exemples originaux fournis avec le sujet.
+	Parmi les exemples fournis avec le sujet:
+		- L'exemple2 ne compile pas car une variable n'est pas déclarée (je ne
+		sais pas si c'est intentionnel)
+		- L'exemple4 lève un warning pour une variable non utilisée
+
+	Pour les boucles:
+		Les boucles apparaissent dans plusieurs de ces fichiers (principalement
+		TQ et POUR), mais elles peuvent toutes être testées via boucles.algo
+
+	Pour le SI: si.algo (et plusieurs autres)
+
+	Pour les fonctions: la plupart des fichiers, fonctions.algo contient presque
+	tous les scénarios possibles (appels imbriqués, utilisation de la valeur de
+	retour dans une expression, etc.) et recu.algo contient un exemple de 
+	récursivité.
+
+	Pour les tableaux: exemple4.algo, tab.algo, alloc.algo
+
+	Pour l'allocation dynamique: alloc.algo, exemple4.algo
+
+	Pour les pointeurs: ptr.algo, alloc.algo
+
+	Pour la phase préprocesseur: preproc.algo, test.algo (attention à bien lire
+	les commentaires pour le chemin d'inclusion)
+
+
+	Boss finaux: tri_par_tas.algo & tri_rapide.algo

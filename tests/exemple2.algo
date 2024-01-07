@@ -1,14 +1,8 @@
-VAR x, y <- 10
-VAR z
-
-/* Test contextes */
-VAR a <- 1
-
 PROGRAMME()
-VAR a <- 15, b
+VAR toto, titi, tutu
 DEBUT
-	b <- 1
-	x <- a - y
-	z <- x * 3 - (a % 2)
-	b <- NON (z <= y OU z < x)
+	toto <- 12
+	titi <- 5
+	tutu <- 2*(a-b)
+	toto <- (tutu < 0)
 FIN

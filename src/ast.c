@@ -23,10 +23,13 @@ ast *init_ast(node_type type)
     t->mem_adr = -1;
     t->codelen = 0;
 
-    t->lig = yylloc.first_line - line_offset;
-    t->col = yylloc.first_column;
+    t->pos_infos.first_line = yylloc.first_line - line_offset;
+    t->pos_infos.last_line = yylloc.last_line - line_offset;
+    t->pos_infos.first_column = yylloc.first_column;
+    t->pos_infos.last_column = yylloc.last_column;
 
-    return t; 
+
+    return t;
 }
 
 
@@ -40,6 +43,7 @@ ast *init_ast(node_type type)
 ast *create_nb_leaf(int value)
 {
     ast *t = init_ast(nb_type);
+    
     t->nb.val = value;
 
     return t;
@@ -138,11 +142,12 @@ ast *create_instr_node(ast *instr, ast *l)
  * @param expr 
  * @return ast* 
  */
-ast *create_affect_node(char *id, ast *expr)
+ast *create_affect_node(char *id, ast *expr, int deref)
 {
     ast *t = init_ast(affect_type);
     t->affect.id = create_id_leaf(id);
     t->affect.expr = expr;
+    t->affect.is_deref = deref;
 
     return t;
 }
@@ -173,11 +178,12 @@ ast *create_decla_node(ast *decla, ast *l_decla)
 
 
 
-ast *create_var_decla_node(char *id, ast *expr, ast *next)
+ast *create_var_decla_node(ast *var, ast *expr, ast *next, type_symb type)
 {
     ast *t = init_ast(var_decla_type);
     t->var_decla.expr = expr;
-    t->var_decla.id = create_id_leaf(id);
+    t->var_decla.type = type;
+    t->var_decla.var = var;
 
     /* Il faut faire une opération d'enfilage pour garder le bon ordre */
     if (next == NULL)
@@ -289,7 +295,7 @@ ast *create_for_node(char *id, ast *start_exp, ast *end_exp, ast *l_instr)
     t->for_n.id = create_id_leaf(id);
     t->for_n.end_exp = create_b_op_node('<', t->for_n.id, end_exp);
     t->for_n.list_instr = l_instr;
-    t->for_n.affect_init = create_affect_node(id, start_exp);
+    t->for_n.affect_init = create_affect_node(id, start_exp, 0);
 
     return t;
 }
@@ -319,19 +325,32 @@ ast *create_exp_list_node(ast *expr, ast *next)
     ast *t = init_ast(exp_list_type);
     t->exp_list.exp = expr;
 
+    t->pos_infos.last_column = expr->pos_infos.last_column;
+
+    if (next != NULL)
+    {
+        t->pos_infos.first_column = next->pos_infos.first_column;
+        next->pos_infos = t->pos_infos;
+    }
+    else t->pos_infos.first_column = expr->pos_infos.first_column;
+
+    
+    
     /* Il faut faire une opération d'enfilage pour garder le bon ordre */
     if (next == NULL)
     {
-        t->exp_list.next = next;
+        t->exp_list.next = NULL;
         return t;
     }
-    
+
     ast *aux = next;
     while (aux->exp_list.next != NULL)
     {
         aux = aux->exp_list.next;
     }
     aux->exp_list.next = t;
+
+    
 
     return next;
 }
@@ -347,6 +366,74 @@ ast *create_function_call_node(const char *id, ast *params)
     return t;
 }
 
+
+
+
+ast *create_arr_access_node(char *id, ast *ind_expr, ast *aff_expr)
+{
+    ast *t = init_ast(array_access_type);
+    t->arr_access.id = create_id_leaf(id);
+    t->arr_access.ind_expr = ind_expr;
+    t->arr_access.affect_expr = aff_expr;
+
+    return t;
+}
+
+
+/**
+ * @brief Créé le noeud représentant une déclaration de tableau.
+ * Soit: @tab (taille indéfinie)
+ * ou tab[5]  (de taille 5 sans initialisation)
+ * ou tab[3] <- [1, 2, 3] (de taille 3, initialisé)
+ * 
+ * @param id 
+ * @param size 
+ * @param l_exp 
+ * @return ast* 
+ */
+ast *create_arr_decla_node(char *id, int size, ast *l_exp)
+{
+    ast *t = init_ast(array_decla_type);
+
+    t->arr_decla.id = create_id_leaf(id);
+    t->arr_decla.size = size;
+    t->arr_decla.list_expr = l_exp;
+
+    return t;
+}
+
+
+
+ast *create_alloc_node(char *id, ast *expr)
+{
+    ast *t = init_ast(alloc_type);
+
+    t->alloc.id = create_id_leaf(id);
+    t->alloc.expr = expr;
+
+    return t;
+}
+
+
+
+ast *create_proto_node(char *id, ast *params)
+{
+    ast *t = init_ast(proto_type);
+
+    t->proto.id = create_id_leaf(id);
+    t->proto.params = params;
+
+    /* On compte le nombre de paramètres */
+    t->proto.nb_params = 0;
+    ast *aux = t->proto.params;
+    while (aux != NULL)
+    {
+        t->proto.nb_params++;
+        aux = aux->var_decla.next;
+    }
+
+    return t;
+}
 
 
 
@@ -383,7 +470,7 @@ void free_ast(ast *t)
         break;
     case var_decla_type:
         free_ast(t->var_decla.expr);
-        free_ast(t->var_decla.id);
+        free_ast(t->var_decla.var);
         free_ast(t->var_decla.next);
         break;
     case prog_type:
@@ -427,6 +514,23 @@ void free_ast(ast *t)
         break;
     case io_type:
         free_ast(t->io.expr);
+        break;
+    case array_access_type:
+        free_ast(t->arr_access.id);
+        free_ast(t->arr_access.ind_expr);
+        free_ast(t->arr_access.affect_expr);
+        break;
+    case array_decla_type:
+        free_ast(t->arr_decla.id);
+        free_ast(t->arr_decla.list_expr);
+        break;
+    case alloc_type:
+        free_ast(t->alloc.id);
+        free_ast(t->alloc.expr);
+        break;
+    case proto_type:
+        free_ast(t->proto.id);
+        free_ast(t->proto.params);
         break;
     default:
         break;
@@ -573,10 +677,44 @@ static void decla_to_dot(ast *t, int c_id, FILE *fp)
 
 
 
+static void arr_decla_to_dot(ast *t, int c_id, FILE *fp)
+{
+    array_decla_node node = t->arr_decla;
+    printf("Taille %d\n", node.size);
+
+
+    char pref[16] = "décla";
+    char symb[16];
+    
+    if (node.list_expr != NULL) strcat(pref, " + init");
+    (node.list_expr == NULL) ? strcpy(symb, " ") : strcpy(symb, "reçoit");
+
+    static char *fmt = "\"{%s du tab %s (taille: %d)|{<l%dl> %s |<r%dr> next}}\"";
+    sprintf(buff, fmt, pref, node.id->id.name, node.size, c_id, symb, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+
+
+    if (node.list_expr == NULL) return;
+
+    tmp = ast_to_dot(node.list_expr, fp);
+    fprintf(fp, "    %d:c%dc -- %d;\n", c_id, c_id, tmp);
+}
+
+
 
 static void var_init_to_dot(ast *t, int c_id, FILE *fp)
 {
     var_decla_node node = t->var_decla;
+
+    if (node.type == array)
+    {
+        arr_decla_to_dot(node.var, c_id, fp);
+        if (node.next == NULL) return;
+        tmp = ast_to_dot(node.next, fp);
+        fprintf(fp, "    %d:r%dr -- %d;\n", c_id, c_id, tmp);
+        return;
+    }
+
     char pref[16] = "décla";
     char symb[16];
     
@@ -584,7 +722,7 @@ static void var_init_to_dot(ast *t, int c_id, FILE *fp)
     (node.expr == NULL) ? strcpy(symb, " ") : strcpy(symb, "reçoit");
 
     static char *fmt = "\"{%s de %s|{<l%dl> %s |<r%dr> next}}\"";
-    sprintf(buff, fmt, pref, node.id->id.name, c_id, symb, c_id);
+    sprintf(buff, fmt, pref, node.var->id.name, c_id, symb, c_id);
     fprintf(fp, "    %d [label=%s];\n", c_id, buff);
 
     if (node.expr != NULL)
@@ -777,6 +915,52 @@ static void return_to_dot(ast *t, int c_id, FILE *fp)
 
 
 
+static void arr_access_to_dot(ast *t, int c_id, FILE *fp)
+{
+    array_access_node node = t->arr_access;
+    static char *fmt = "\"{Accès tableau %s|{<l%dl>indice|<r%dr>reçoit}}\"";
+
+    sprintf(buff, fmt, node.id->id.name , c_id, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+
+    if (node.ind_expr == NULL) return;
+
+    tmp = ast_to_dot(node.ind_expr, fp);
+    fprintf(fp, "    %d:l%dl -- %d;\n", c_id, c_id, tmp);
+
+    if (node.affect_expr == NULL) return;
+    tmp = ast_to_dot(node.affect_expr, fp);
+    fprintf(fp, "    %d:r%dr -- %d;\n", c_id, c_id, tmp);
+}
+
+
+static void alloc_to_dot(ast *t, int c_id, FILE *fp)
+{
+    alloc_node node = t->alloc;
+    static char *fmt = "\"{Allocation pour %s|{<c%dc>}}\"";
+
+    sprintf(buff, fmt, node.id->id.name, c_id);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+
+    tmp = ast_to_dot(node.expr, fp);
+    fprintf(fp, "    %d:c%dc -- %d;\n", c_id, c_id, tmp);
+}
+
+
+static void proto_to_dot(ast *t, int c_id, FILE *fp)
+{
+    proto_node node = t->proto;
+
+    static char *fmt = "\"{Prototype de %s|{<args%dargs>%d params}}\"";
+
+    sprintf(buff, fmt, node.id->id.name, c_id, node.nb_params);
+    fprintf(fp, "    %d [label=%s];\n", c_id, buff);
+}
+
+
+
+
+
 /**
  * @brief Convertit l'ASA en fichier utilisable avec dot
  * https://graphviz.org/doc/info/shapes.html#record
@@ -846,6 +1030,18 @@ int ast_to_dot(ast *t, FILE *fp)
         break;
     case exp_list_type:
         exp_list_to_dot(t, c_id, fp);
+        break;
+    case array_access_type:
+        arr_access_to_dot(t, c_id, fp);
+        break;
+    case array_decla_type:
+        arr_decla_to_dot(t, c_id, fp);
+        break;
+    case alloc_type:
+        alloc_to_dot(t, c_id, fp);
+        break;
+    case proto_type:
+        proto_to_dot(t, c_id, fp);
         break;
     default:
         break;

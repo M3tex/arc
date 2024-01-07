@@ -1,4 +1,4 @@
-/* Librairie standard contenant les fonction utilitaires */
+/* Librairie standard contenant des fonction utilitaires */
 
 /* Renvoie le min de a et b */
 ALGO min(a, b)
@@ -21,4 +21,65 @@ DEBUT
     FSI
 
     RETOURNER c
+FIN
+
+
+/* Échange les valeurs d'indice i et j dans le tableau tab */
+ALGO echanger(@tab, i, j)
+VAR tmp
+DEBUT
+    tmp <- tab[i]
+    tab[i] <- tab[j]
+    tab[j] <- tmp
+FIN
+
+/* Échange les valeurs situées aux adresses a et b */
+ALGO echanger_val(@a, @b)
+VAR c <- *a;
+DEBUT
+    *a <- *b
+    *b <- c
+FIN
+
+
+/* Retourne une copie du tableau src de taille n */
+ALGO copie_tab(@src, n)
+VAR i, @res
+DEBUT
+    ALLOUER(res, n)
+    POUR i DANS 0...n FAIRE
+        res[i] <- src[i]
+    FPOUR
+
+    RETOURNER res
+FIN
+
+
+/* Retourne la valeur minimale du tableau tab de taille n */
+ALGO min_tab(@tab, n)
+VAR m, i
+DEBUT
+    m <- tab[0]
+    POUR i DANS 1...n FAIRE
+        SI tab[i] < m ALORS
+            m <- tab[i]
+        FSI
+    FPOUR
+
+    RETOURNER m
+FIN
+
+
+/* Retourne la valeur maximale du tableau tab de taille n */
+ALGO max_tab(@tab, n)
+VAR m, i
+DEBUT
+    m <- tab[0]
+    POUR i DANS 1...n FAIRE
+        SI tab[i] > m ALORS
+            m <- tab[i]
+        FSI
+    FPOUR
+
+    RETOURNER m
 FIN

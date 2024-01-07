@@ -1,6 +1,7 @@
+/* Test des fonctions d'entrée/sortie. 1 valeur obligatoire dans la bande */
 PROGRAMME()
-VAR n, somme <- 4
+VAR n
 DEBUT
     n <- LIRE()
-    ECRIRE(n * somme + 1)
+    ECRIRE(n * n)
 FIN

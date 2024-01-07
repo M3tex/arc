@@ -1,5 +1,4 @@
 %{
-
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -12,13 +11,13 @@
 #include "symbol_table.h"
 #include "semantic.h"
 #include "preprocessor.h"
+#include "arc_options.h"
 
 
 extern int yylex();
 extern int yylex_destroy();
 void yyerror(const char *s);
 
-// ToDo: Table symboles
 ast *abstract_tree = NULL;
 symb_table table = NULL;
 
@@ -27,12 +26,15 @@ char *src = NULL;
 char *exename = NULL;
 char *include_path = NULL;
 
+int is_dbg_mode = 0;
+int print_tree = 0;
+int print_table = 0;
+
 int line_offset = 0;
+int mem_size = 0;
 
 char PROJECT_PATH[PATH_MAX];
 FILE *fp_out;
-
-char current_ctx[32] = "global";
 
 %}
 
@@ -50,6 +52,7 @@ char current_ctx[32] = "global";
 %token <nb> NB
 %token <id> ID
 %token PROGRAMME DEBUT FIN VAR ALGO
+%token PROTO
 %token AFFECT_SYMB "<-"
 %token LE "<="
 %token GE ">="
@@ -68,6 +71,8 @@ char current_ctx[32] = "global";
 %token FPOUR
 %token RANGE_SYMB "..."
 %token RETOURNER
+%token ALLOUER
+%token VRAI FAUX
 %token '\n'
 
 /* Priorités (du - prioritaire au + prioritaire) */
@@ -93,7 +98,7 @@ char current_ctx[32] = "global";
 %type <tree> PROG_MAIN
 %type <tree> AFFECTATION
 %type <tree> DECLARATION
-%type <tree> LIST_INIT
+%type <tree> LIST_DECLA_VAR
 %type <tree> STRUCT_SI
 %type <tree> STRUCT_TQ
 %type <tree> STRUCT_FAIRE_TQ
@@ -105,6 +110,11 @@ char current_ctx[32] = "global";
 %type <tree> APPEL_FUNC
 %type <tree> LIRE_INSTR
 %type <tree> ECRIRE_INSTR
+%type <tree> AFFECT_TAB
+%type <tree> ACCES_TAB
+%type <tree> DECLA_TAB
+%type <tree> ALLOC_INSTR
+%type <tree> PROTO_FONCTION
 
 %%
 
@@ -123,16 +133,26 @@ SEP_STRUCT: SEP
 ;
 
 
-LIST_INIT: ID "<-" EXP          {$$ = create_var_decla_node($1, $3, NULL);}
-| ID                            {$$ = create_var_decla_node($1, NULL, NULL);}
-| LIST_INIT ',' ID              {$$ = create_var_decla_node($3, NULL, $1);}
-| LIST_INIT ',' ID "<-" EXP     {$$ = create_var_decla_node($3, $5, $1);}
+DECLA_TAB: ID '[' NB ']'        {$$ = create_arr_decla_node($1, $3, NULL);}
+| ID '[' NB ']' "<-" '[' LIST_EXPR ']' 
+                                {$$ = create_arr_decla_node($1, $3, $7);}
 ;
 
 
+LIST_DECLA_VAR: ID "<-" EXP        {$$ = create_var_decla_node(create_id_leaf($1), $3, NULL, integer);}
+| ID                               {$$ = create_var_decla_node(create_id_leaf($1), NULL, NULL, integer);}
+| LIST_DECLA_VAR ',' ID            {$$ = create_var_decla_node(create_id_leaf($3), NULL, $1, integer);}
+| LIST_DECLA_VAR ',' ID "<-" EXP   {$$ = create_var_decla_node(create_id_leaf($3), $5, $1, integer);}
+| DECLA_TAB                        {$$ = create_var_decla_node($1, NULL, NULL, array);}
+| LIST_DECLA_VAR ',' DECLA_TAB     {$$ = create_var_decla_node($3, NULL, $1, array);}
+| '@'ID                            {$$ = create_var_decla_node(create_id_leaf($2), NULL, NULL, pointer);}
+| LIST_DECLA_VAR ',' '@'ID         {$$ = create_var_decla_node(create_id_leaf($4), NULL, $1, pointer);}
+;
 
-DECLARATION: VAR LIST_INIT SEP  {$$ = create_decla_node($2, NULL);}
-| FONCTION                      {$$ = create_decla_node($1, NULL);}
+
+DECLARATION: VAR LIST_DECLA_VAR SEP  {$$ = create_decla_node($2, NULL);}
+| FONCTION                           {$$ = create_decla_node($1, NULL);}
+| PROTO_FONCTION                     {$$ = create_decla_node($1, NULL);}
 ;
 
 
@@ -141,14 +161,14 @@ LIST_DECLA: %empty              {$$ = NULL;}
 ;
 
 
-AFFECTATION: ID "<-" EXP   {$$ = create_affect_node($1, $3);}
+AFFECTATION: ID "<-" EXP   {$$ = create_affect_node($1, $3, 0);}
+| '*'ID "<-" EXP           {$$ = create_affect_node($2, $4, 1);}
 ;
-
 
 
 PROGRAMME_ALGO: SEP_STRUCT LIST_DECLA PROG_MAIN END_FILE
                    {$$ = create_prog_root($2, $3); abstract_tree = $$;}
-; 
+;
 
 
 PROG_MAIN: PROGRAMME '(' ')' SEP        
@@ -160,8 +180,10 @@ FIN             {$$ = create_function_node("PROGRAMME", NULL, $5, $8);}
 
 
 LIST_ARGS: %empty       {$$ = NULL;}
-| ID                    {$$ = create_var_decla_node($1, NULL, NULL);}
-| LIST_ARGS ',' ID      {$$ = create_var_decla_node($3, NULL, $1);}
+| ID                    {$$ = create_var_decla_node(create_id_leaf($1), NULL, NULL, integer);}
+| LIST_ARGS ',' ID      {$$ = create_var_decla_node(create_id_leaf($3), NULL, $1, integer);}
+| '@'ID                 {$$ = create_var_decla_node(create_id_leaf($2), NULL, NULL, pointer);}
+| LIST_ARGS ',' '@'ID   {$$ = create_var_decla_node(create_id_leaf($4), NULL, $1, pointer);}
 ;
 
 
@@ -171,6 +193,14 @@ LIST_EXPR: %empty       {$$ = NULL;}
 ;
 
 
+PROTO_FONCTION: PROTO ID '(' LIST_ARGS ')' SEP   {
+        /* Un exemple de comment gérer proprement les erreurs (très lourd) */
+        yylloc.first_line = @2.first_line; 
+        yylloc.last_column = @5.last_column;
+        $$ = create_proto_node($2, $4);
+    }
+;                       
+
 FONCTION: ALGO ID '(' LIST_ARGS ')' SEP
 LIST_DECLA
 DEBUT SEP
@@ -179,6 +209,7 @@ FIN
 SEP                     {$$ = create_function_node($2, $4, $7, $10);}
 ;
 
+
 CORPS_FUNC: LISTE_INSTR {$$ = $1;}
 ;
 
@@ -186,11 +217,22 @@ APPEL_FUNC: ID '(' LIST_EXPR ')'    {$$ = create_function_call_node($1, $3);}
 ;
 
 
+ACCES_TAB: ID '[' EXP ']'           {$$ = create_arr_access_node($1, $3, NULL);}
+;
+
+
+AFFECT_TAB: ID '[' EXP ']' "<-" EXP {$$ = create_arr_access_node($1, $3, $6);}
+;
+
+
 EXP: '(' EXP ')'        {$$ = $2;}
+| ACCES_TAB             {$$ = $1;}
 | ID                    {$$ = create_id_leaf($1);}
 | NB                    {$$ = create_nb_leaf(yylval.nb);}
 | NON EXP               {$$ = create_u_op_node(NOT_OP, $2);}
 | '-' EXP               {$$ = create_u_op_node('-', $2);}
+| '@' ID                {$$ = create_u_op_node('@', create_id_leaf($2));}
+| '*' ID                {$$ = create_u_op_node('*', create_id_leaf($2));}
 | EXP '+' EXP           {$$ = create_b_op_node('+', $1, $3);}
 | EXP '-' EXP           {$$ = create_b_op_node('-', $1, $3);}
 | EXP '*' EXP           {$$ = create_b_op_node('*', $1, $3);}
@@ -204,6 +246,8 @@ EXP: '(' EXP ')'        {$$ = $2;}
 | EXP "!=" EXP          {$$ = create_b_op_node(NE_OP, $1, $3);}
 | EXP OU EXP            {$$ = create_b_op_node(OR_OP, $1, $3);}
 | EXP ET EXP            {$$ = create_b_op_node(AND_OP, $1, $3);}
+| VRAI                  {$$ = create_nb_leaf(1);}
+| FAUX                  {$$ = create_nb_leaf(0);}
 | APPEL_FUNC            {$$ = $1;}
 | LIRE_INSTR            {$$ = $1;}
 ;
@@ -211,6 +255,7 @@ EXP: '(' EXP ')'        {$$ = $2;}
 
 INSTR: EXP SEP          {$$ = $1;}
 | AFFECTATION SEP       {$$ = $1;}
+| AFFECT_TAB SEP        {$$ = $1;}
 | ECRIRE_INSTR SEP      {$$ = $1;}
 | STRUCT_TQ SEP         {$$ = $1;}
 | STRUCT_SI SEP         {$$ = $1;}
@@ -218,6 +263,7 @@ INSTR: EXP SEP          {$$ = $1;}
 | STRUCT_POUR SEP       {$$ = $1;}
 | RETOURNER EXP SEP     {$$ = create_return_node($2);}
 | RETOURNER SEP         {$$ = create_return_node(NULL);}
+| ALLOC_INSTR SEP       {$$ = $1;}
 ;
 
 LISTE_INSTR: INSTR      {$$ = create_instr_node($1, NULL);}
@@ -226,6 +272,11 @@ LISTE_INSTR: INSTR      {$$ = create_instr_node($1, NULL);}
 
 
 // Autres structures
+ALLOC_INSTR: ALLOUER '(' ID ',' EXP ')' {$$ = create_alloc_node($3, $5);}
+;
+
+
+
 LIRE_INSTR: LIRE '(' ')'            {$$ = create_io_node(NULL, 'r');}
 ;
 
@@ -273,44 +324,15 @@ int main(int argc, char **argv)
      * dans le makefile.
      * 
      * La 2ème ligne permet de supprimer le bout de chemin en trop.
+     * 
+     * Ainsi, peu importe d'où l'exécutable est lancé, le chemin vers la
+     * librairie standard sera correct.
      */
     strcpy(PROJECT_PATH, __FILE__);
     PROJECT_PATH[strlen(PROJECT_PATH) - strlen("/src/parser.y")] = '\0';
-
-    int opt, dbg = 0;
-    char *options = "o:dI:";
-    while ((opt = getopt(argc, argv, options)) != -1)
-    {
-        switch (opt)
-        {
-        case 'o':
-            exename = (char *) malloc(sizeof(char) * (strlen(optarg) + 1));
-            check_alloc(exename);
-            strcpy(exename, optarg);
-            break;
-        case 'd':
-            dbg = 1;
-            break;
-        case 'I':
-            include_path = (char *) malloc(sizeof(char) * (strlen(optarg) + 1));
-            check_alloc(include_path);
-            strcpy(include_path, optarg);
-            break;
-        default:
-            break;
-        }
-    }
-
-    /* Le seul argument sans option doit être le fichier.algo */
-    if (optind >= argc)
-    {
-        fatal_error("pas de fichier en entrée");
-        exit(F_INPUT_ERROR);
-    }
-
-    src = (char *) malloc(sizeof(char) * (strlen(argv[optind]) + 1));
-    check_alloc(src);
-    strcpy(src, argv[optind]);
+    
+    /* Traitement des options de la ligne de commande */
+    handle_options(argc, argv);
 
     /* Phase préprocesseur */
     yyin = preprocessor(src, &line_offset);
@@ -319,54 +341,48 @@ int main(int argc, char **argv)
     table = init_symb_table("global");
     abstract_tree = NULL;
 
+    /* Analyse lexicale / syntaxique */
     yyparse();
-    fclose(yyin);
 
     /* Supprime le fichier intermédiaire utilisé */
-    system("rm __arc_PP.algo_pp");
+    system("rm ./__arc_PP.algo_pp");
 
     /* Analyse sémantique */
     semantic(abstract_tree);
+    second_turn_semantic(abstract_tree, NULL);
 
-    
-    if (dbg)
-    {
-        ast_to_img(abstract_tree, "ast", "png");
-        symb_to_img(table, "table", "png");
-    }
+    /* Affichage si demandé par l'utilisateur */
+    if (print_tree) ast_to_img(abstract_tree, "ast", "png");
+    if (print_table) symb_to_img(table, "table", "png");
 
-
-    if (exename == NULL)
-    {
-        exename = (char *) malloc(sizeof(char) * (strlen("a.out") + 1));
-        check_alloc(exename);
-        strcpy(exename, "a.out");
-    }
-
+    /* Ouverture du fichier de sortie */
     fp_out = fopen(exename, "w");
     if (fp_out == NULL)
     {
         fatal_error("impossible d'ouvrir ~U%s~E", exename);
         exit(F_INPUT_ERROR);
     }
+    
+    /* Génération du code */
     init_ram_os();
     codegen(abstract_tree);
 
+    
+    fclose(yyin);
     free_table(table);
     fclose(fp_out);
 
-    if (dbg)
+    if (is_dbg_mode)
     {
         /* Temporaire, pour vérifier que semantic marche bien */
         char buff[256];
-        size_t codelen_total = abstract_tree->codelen + 5;  // + 5 pour ramOS
+        size_t codelen_total = abstract_tree->codelen + 7;  // + 7 pour ramOS
         sprintf(buff, "echo \"Codelen total: %ld\nNombre de lignes "\
         "dans le fichier produit: \" && wc -l %s", codelen_total, exename);
         system(buff);
     }
 
-
-
+    /* Libération de la mémoire */
     free(src);
     free(exename);
     free_ast(abstract_tree);
@@ -382,7 +398,7 @@ int main(int argc, char **argv)
 
 void yyerror(const char *s)
 {
-    int lig = yylloc.first_line - line_offset;
-    colored_error(RED|BOLD, 0, "%s:%d:%d:", src, lig, yylloc.first_column);
-    print_error(BISON_ERROR, " %s\n", s);
+    set_error_info(yylloc);
+    fatal_error("%s", s);
+    exit(BISON_ERROR);
 }

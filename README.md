@@ -20,6 +20,9 @@ la [machine RAM][RAM].
 ### Blancs:
 Espace et `\t`
 
+### Commentaires:
+Comme en C et en Python: `// commentaire`, `/* commentaire */` ou `# commentaire`.
+
 ### Nombres:
 Entiers décimaux sans 0 superflus.
 

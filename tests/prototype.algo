@@ -1,0 +1,25 @@
+/* Test des prototypes */
+
+# Commentez pour qu'une erreur apparaisse
+PROTO foo(a, b)
+
+ALGO bar(a, b)
+VAR c <- a + 5
+DEBUT
+    RENVOYER foo(b, c)
+FIN
+
+
+ALGO foo(a, b)
+DEBUT
+    RENVOYER a * b
+FIN
+
+/* Décommentez pour qu'un warning apparaisse */
+// PROTO baz()
+
+PROGRAMME()
+DEBUT
+    /* Doit afficher 42 */
+    ECRIRE(bar(1, 7))
+FIN 

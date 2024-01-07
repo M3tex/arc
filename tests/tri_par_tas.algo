@@ -1,0 +1,81 @@
+/*
+ * Programme montrant à peu près toutes les possibilités offertes par le
+ * compilateur (toutes les constructions ne sont pas présentes).
+ *
+ * Tris par tas.
+ * La bande d'entrée doit contenir la taille du tableau puis les éléments du
+ * tableau.
+ */
+
+/* Prototypes de fonctions */
+PROTO entasser(@tab, n)
+PROTO tamiser(@tab, i_pere, i_fin)
+PROTO echanger(@tab, i, j)
+
+/* Variables globales */
+VAR nb_comparaisons <- 0
+VAR nb_echanges <- 0
+
+
+ALGO tri_par_tas(@tab, n)
+VAR k <- n - 1
+DEBUT
+    entasser(tab, n)
+    TQ k > 0 FAIRE
+        echanger(tab, 0, k)
+        tamiser(tab, 0, k)
+        k <- k - 1
+    FTQ
+FIN
+
+
+ALGO entasser(@tab, n)
+VAR i <- n / 2
+DEBUT
+    TQ i > 0 FAIRE
+        tamiser(tab, i, n)
+        i <- i - 1
+    FTQ
+FIN
+
+ALGO tamiser(@tab, i_pere, i_fin)
+VAR i_fils
+DEBUT
+    i_fils <- 2 * i_pere + 1
+    SI i_fils < i_fin - 1 ET tab[i_fils + 1] > tab[i_fils] ALORS
+        i_fils <- i_fils + 1
+    FSI
+
+    SI i_fils < i_fin ET tab[i_pere] < tab[i_fils] ALORS
+        echanger(tab, i_pere, i_fils)
+        tamiser(tab, i_fils, i_fin)
+    FSI
+
+    nb_comparaisons <- nb_comparaisons + 2
+FIN
+
+ALGO echanger(@tab, i, j)
+VAR tmp
+DEBUT
+    tmp <- tab[i]
+    tab[i] <- tab[j]
+    tab[j] <- tmp
+    nb_echanges <- nb_echanges + 1
+FIN
+
+
+PROGRAMME()
+VAR @tab, n, i
+DEBUT
+    n <- LIRE()
+    ALLOUER(tab, n)
+    POUR i DANS 0...n FAIRE
+        tab[i] <- LIRE()
+    FPOUR
+
+    tri_par_tas(tab, n)
+
+    POUR i DANS 0...n FAIRE
+		ECRIRE(tab[i])
+	FPOUR
+FIN

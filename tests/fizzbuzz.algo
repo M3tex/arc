@@ -1,8 +1,11 @@
-# Implémentation du célèbre jeu "FizzBuzz"
-# Parcours les nombres jusqu'à une limite fixée, et si le nombre est
-# divisible par 3, affiche "Fizz" (ici -3 car pas de strings)
-# Si le nombre est divisible par 5, affiche "Buzz" (ici -5)
-# S'il est divisible par 3 et 5, "FizzBuzz" (ici -15)
+/* 
+ * Implémentation du célèbre jeu "FizzBuzz"
+ * Parcours les nombres jusqu'à une limite fixée, et si le nombre est
+ * divisible par 3, affiche "Fizz" (ici -3 car pas de strings)
+ * Si le nombre est divisible par 5, affiche "Buzz" (ici -5)
+ * S'il est divisible par 3 et 5, "FizzBuzz" (ici -15)
+ */
+ 
 PROGRAMME()
 VAR n, i <- 1, flg
 DEBUT

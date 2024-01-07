@@ -2,7 +2,9 @@
 #define _ARC_UTILS_HEADER
 
 
-/* Contient toutes les fonctions non liées à des "vraies" modules */
+#include "parser.h"
+
+/* Contient toutes les fonctions non liées à des "vrais" modules */
 
 
 /* Codes d'erreur */
@@ -40,12 +42,10 @@
 /* Structure contenant les informations de l'erreur (un peu comme un errno) */
 struct error_info {
     int has_info;
-    int lig;
-    int col;
+    YYLTYPE loc;
 };
 
 
-extern struct error_info ERROR_INFO;
 extern char *src;
 
 
@@ -58,7 +58,7 @@ void fatal_error(char *fmt, ...);
 
 void warning(char *fmt, ...);
 
-void set_error_info(int l, int c);
+void set_error_info(YYLTYPE infos);
 void unset_error_info();
 
 void check_alloc(void *ptr);

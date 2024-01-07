@@ -1,9 +1,13 @@
+/* Fonctionnalités arithmétiques de base */
 PROGRAMME()
-VAR x, y <- 5, z
+VAR x, y, z
 DEBUT
-    # Test des expressions arithmétiques
-    /* Également un commentaire (et // aussi) */
-    z <- 2
-    x <- y * 3 + 5
-    y <- x * 2
-FIN 
+    x <- 2
+    y <- 2 + 3 * -4 - - 1
+    z <- x * y + 1
+
+    /* La bande de sortie doit-être [2, -9, -17] */
+    ECRIRE(x)
+    ECRIRE(y)
+    ECRIRE(z)
+FIN

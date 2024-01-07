@@ -12,6 +12,9 @@ static char old_context[32];
 /* Compteur d'instruction. Utilisé pour les JUMP */
 static int nb_instr = 0;
 
+/* Pour la taille de la pile */
+extern int mem_size;
+
 
 
 /**
@@ -113,12 +116,14 @@ void peek()
  */
 void init_ram_os()
 {
-    /* ToDo: Inclure + proprement ram_OS ? */
-    add_instr(LOAD, '#', STACK_START);
+    int adr = mem_size == 0 ? STACK_START : mem_size;
+    add_instr(LOAD, '#', adr);
     add_instr(STORE, ' ', STACK_REG);
     add_instr(STORE, ' ', STACK_REL_START);
-    add_instr(LOAD, '#', HEAP_START);
+    add_instr(LOAD, '#', STATIC_START);
     add_instr(STORE, ' ', HEAP_REG);
+    add_instr(LOAD, '#', 0);
+    add_instr(STORE, ' ', TMP_REG_REL_STK_CPY);
 }
 
 
@@ -180,6 +185,12 @@ void codegen(ast *t)
         break;
     case var_decla_type:
         codegen_var_decla(t);
+        break;
+    case array_access_type:
+        codegen_arr_access(t);
+        break;
+    case alloc_type:
+        codegen_alloc(t);
         break;
     default:
         break;
@@ -282,6 +293,8 @@ void codegen_b_op(ast *t)
 
 void codegen_u_op(ast *t)
 {
+    symbol *tmp;
+
     switch (t->u_op.ope)
     {
     case NOT_OP:
@@ -290,6 +303,31 @@ void codegen_u_op(ast *t)
     case '-':
         codegen(t->u_op.child);
         add_instr(MUL, '#', -1);
+        break;
+    case '@':
+        tmp = get_symbol(table, c_context, t->u_op.child->id.name);
+        if (tmp->mem_zone == 's')
+        {
+            add_instr(LOAD, ' ', STACK_REL_START);
+            add_instr(SUB, '#', tmp->adr);
+        }
+        else add_instr(LOAD, '#', tmp->adr);
+        break;
+    case '*':
+        tmp = get_symbol(table, c_context, t->u_op.child->id.name);
+        if (tmp->mem_zone == 's')
+        {
+            add_instr(LOAD, ' ', STACK_REL_START);
+            add_instr(SUB, '#', tmp->adr);
+
+            /* L'ACC contient maintenant l'adresse du ptr */
+            add_instr(LOAD, '@', 0);
+
+            /* L'ACC contient maintenant le contenu du ptr */
+            add_instr(LOAD, '@', 0);
+        }
+        else add_instr(LOAD, '@', tmp->adr);
+        break;
     default:
         break;
     }
@@ -301,7 +339,24 @@ void codegen_id(ast *t)
 {
     symbol *tmp = get_symbol(table, c_context, t->id.name);
 
-    char adr_type = tmp->type == pointer ? '@' : ' ';
+    /*
+     * Si l'id est un tableau, il ne faut pas charger la valeur contenue à
+     * l'adresse de l'id mais il faut charger l'adresse de l'id.
+     */
+    if (tmp->type == array)
+    {
+        /* Si dans la pile il faut calculer l'adresse à l'exécution */
+        if (tmp->mem_zone == 's')
+        {
+            add_instr(LOAD, ' ', STACK_REL_START);
+            add_instr(SUB, '#', tmp->adr);
+        }
+        else add_instr(LOAD, '#', tmp->adr);
+        return;
+    }
+
+    /* Sinon on charge simplement la valeur contenue à l'adresse de l'id */
+    char adr_type = ' ';
 
     /* Si dans la pile il faut calculer l'adresse à l'exécution */
     int adr = tmp->adr;
@@ -412,12 +467,13 @@ void codegen_lt(ast *t)
      */
     codegen(t->b_op.r_memb);
 
-    /* On stocke dans un registre temporaire */
-    add_instr(STORE, ' ', TMP_REG_CMP);
+    /* On empile */
+    push();
 
     /* Génération du code de l'expression de gauche */
     codegen(t->b_op.l_memb);
-    add_instr(SUB, ' ', TMP_REG_CMP);
+    add_instr(INC, ' ', STACK_REG);
+    add_instr(SUB, '@', STACK_REG);
 
     /* Si inférieur (strictement) à 0: a < b */
     add_instr(JUML, ' ', nb_instr + 3);
@@ -443,11 +499,12 @@ void codegen_gt(ast *t)
     codegen(t->b_op.r_memb);
 
     /* On empile */
-    add_instr(STORE, ' ', TMP_REG_CMP);
+    push();
 
     /* Génération du code de l'expression de gauche */
     codegen(t->b_op.l_memb);
-    add_instr(SUB, ' ', TMP_REG_CMP);
+    add_instr(INC, ' ', STACK_REG);
+    add_instr(SUB, '@', STACK_REG);
 
     /* Si supérieur (strictement) à 0: a > b */
     add_instr(JUMG, ' ', nb_instr + 3);
@@ -472,12 +529,13 @@ void codegen_eq(ast *t)
      */
     codegen(t->b_op.r_memb);
 
-    /* On stocke dans un registre temporaire */
-    add_instr(STORE, ' ', TMP_REG_CMP);
+    /* On empile */
+    push();
 
     /* Génération du code de l'expression de gauche */
     codegen(t->b_op.l_memb);
-    add_instr(SUB, ' ', TMP_REG_CMP);
+    add_instr(INC, ' ', STACK_REG);
+    add_instr(SUB, '@', STACK_REG);
 
     /* Si égal à 0: a = b */
     add_instr(JUMZ, ' ', nb_instr + 3);
@@ -502,12 +560,13 @@ void codegen_ne(ast *t)
      */
     codegen(t->b_op.r_memb);
 
-    /* On stocke dans un registre temporaire */
-    add_instr(STORE, ' ', TMP_REG_CMP);
+    /* On empile */
+    push();
 
     /* Génération du code de l'expression de gauche */
     codegen(t->b_op.l_memb);
-    add_instr(SUB, ' ', TMP_REG_CMP);
+    add_instr(INC, ' ', STACK_REG);
+    add_instr(SUB, '@', STACK_REG);
 
     /* Si différent de 0: a != b */
     add_instr(JUMZ, ' ', nb_instr + 3);
@@ -532,12 +591,13 @@ void codegen_ge(ast *t)
      */
     codegen(t->b_op.r_memb);
 
-    /* On stocke dans un registre temporaire */
-    add_instr(STORE, ' ', TMP_REG_CMP);
+    /* On empile */
+    push();
 
     /* Génération du code de l'expression de gauche */
     codegen(t->b_op.l_memb);
-    add_instr(SUB, ' ', TMP_REG_CMP);
+    add_instr(INC, ' ', STACK_REG);
+    add_instr(SUB, '@', STACK_REG);
 
     /* Si >= à 0: a >= b */
     add_instr(JUMG, ' ', nb_instr + 4);
@@ -567,12 +627,13 @@ void codegen_le(ast *t)
      */
     codegen(t->b_op.r_memb);
 
-    /* On stocke dans un registre temporaire */
-    add_instr(STORE, ' ', TMP_REG_CMP);
+    /* On empile */
+    push();
 
     /* Génération du code de l'expression de gauche */
     codegen(t->b_op.l_memb);
-    add_instr(SUB, ' ', TMP_REG_CMP);
+    add_instr(INC, ' ', STACK_REG);
+    add_instr(SUB, '@', STACK_REG);
 
     /* Si <= à 0: a <= b */
     add_instr(JUML, ' ', nb_instr + 4);
@@ -603,8 +664,8 @@ void codegen_affect(ast *t)
     codegen(node.expr);
     symbol *tmp = get_symbol(table, c_context, node.id->id.name);
 
-    /* Si pointeur on utilise l'adressage indirect */
-    char adr_type = tmp->type == pointer ? '@' : ' ';
+    /* Si déréférencement on utilise l'adressage indirect */
+    char adr_type = node.is_deref ? '@' : ' ';
 
     /* Si dans la pile il faut calculer l'adresse à l'exécution */
     int adr = tmp->adr;
@@ -614,6 +675,7 @@ void codegen_affect(ast *t)
         add_instr(STORE, ' ', TMP_REG_ACC_SWP);
         add_instr(LOAD, ' ', STACK_REL_START);
         add_instr(SUB, '#', adr);
+        if (node.is_deref) add_instr(LOAD, '@', 0);
         add_instr(STORE, ' ', TMP_REG_STK_ADR);
 
         /* On remet l'ACC dans son état initial */
@@ -725,12 +787,13 @@ void codegen_if(ast *t)
 }
 
 
-
-void codegen_var_decla(ast *t)
+static void codegen_int_decla(ast *t)
 {
     var_decla_node node = t->var_decla;
 
-    symbol *tmp = get_symbol(table, c_context, node.id->id.name);
+    char *id = node.var->id.name;
+    symbol *tmp = get_symbol(table, c_context, id);
+    
     /*
      * S'il y a une expression, il faut initialiser la variable.
      * On commence par générer le code pour l'expression puis on stocke
@@ -740,14 +803,13 @@ void codegen_var_decla(ast *t)
     {
         codegen(node.expr);
 
-        /* Si pointeur on utilise l'adressage indirect */
-        char adr_type = tmp->type == pointer ? '@' : ' ';
+        char adr_type = ' ';
 
         /* Si dans la pile il faut calculer l'adresse à l'exécution */
         int adr = tmp->adr;
         if (tmp->mem_zone == 's')
         {
-            /* On stocke la valeur de l'ACC */
+            /* On stocke la valeur de l'ACC et on calcule l'adresse réelle */
             add_instr(STORE, ' ', TMP_REG_ACC_SWP);
             add_instr(LOAD, ' ', STACK_REL_START);
             add_instr(SUB, '#', adr);
@@ -762,10 +824,64 @@ void codegen_var_decla(ast *t)
     }
 
     /* MAJ du tas / pile */
-    if (tmp->mem_zone == 'h') add_instr(INC, ' ', HEAP_REG);
-    else if (tmp->mem_zone == 's') add_instr(DEC, ' ', STACK_REG);
+    if (tmp->mem_zone == 's') add_instr(DEC, ' ', STACK_REG);
+    else add_instr(INC, ' ', HEAP_REG);
+}
 
-    /* On génère le code pour la déclaration de variable suivante */
+
+
+static void codegen_arr_decla(ast *t)
+{
+    var_decla_node node = t->var_decla;
+    array_decla_node arr_node = node.var->arr_decla;
+
+    char *id = arr_node.id->id.name;
+    symbol *tmp = get_symbol(table, c_context, id);
+
+    /* On parcourt les expressions et on les stocke */
+    ast *aux = arr_node.list_expr;
+
+    /* Si pas d'initialisation on alloue quand même la mémoire */
+    if (tmp->mem_zone == 's')
+    {
+        add_instr(LOAD, ' ', STACK_REG);
+        add_instr(SUB, '#', arr_node.size);
+        add_instr(STORE, ' ', STACK_REG);
+    }
+    else if (aux == NULL)
+    {
+        add_instr(LOAD, ' ', HEAP_REG);
+        add_instr(ADD, '#', arr_node.size);
+        add_instr(STORE, ' ', HEAP_REG);
+    }
+
+    while (aux != NULL)
+    {
+        codegen(aux->exp_list.exp);
+        if (tmp->mem_zone == 's')
+        {
+            add_instr(STORE, '@', STACK_REG);
+            add_instr(INC, ' ', STACK_REG);
+        }
+        else
+        {
+            add_instr(STORE, '@', HEAP_REG);
+            add_instr(INC, ' ', HEAP_REG);
+        }
+        aux = aux->exp_list.next;
+    }
+}
+
+
+
+void codegen_var_decla(ast *t)
+{
+    var_decla_node node = t->var_decla;
+
+    if (node.type == integer) codegen_int_decla(t);
+    else if (node.type == array) codegen_arr_decla(t);
+    else if (node.type == pointer) codegen_int_decla(t);    // même chose
+
     codegen(node.next);
 }
 
@@ -791,12 +907,6 @@ void codegen_func_decla(ast *t)
     {
         add_instr(JUMP, ' ', nb_instr + t->codelen);
     }
-    
-
-    /* MAJ de l'adresse de la fonction */ // ! attention si appel avant
-    symbol *tmp = get_symbol(table, c_context, node.id->id.name);
-    tmp->adr = nb_instr;
-    t->mem_adr = nb_instr;
 
     codegen(node.list_decl);
     codegen(node.list_instr);
@@ -808,32 +918,7 @@ void codegen_func_decla(ast *t)
         return;
     }
 
-    /* Si pas de "RETOURNER" spécifié */
-    if (!tmp->has_return) add_instr(LOAD, '#', 0);
-
-    /* On stocke le contenu de la valeur de retour */
-    add_instr(STORE, ' ', REG_RETURN_VALUE);
-
-    /*
-     * On dépile jusqu'à atteindre le point de départ pour récupérer
-     * l'adresse de retour.
-     */
-    int jumb_back = nb_instr;
-    add_instr(LOAD, ' ', STACK_REL_START);
-    add_instr(SUB, ' ', STACK_REG);
-    add_instr(JUMZ, ' ', nb_instr + 3);
-    add_instr(INC, ' ', STACK_REG);
-    add_instr(JUMP, ' ', jumb_back);
-
-    /* La pile pointe mtn sur l'adresse de retour */
-    add_instr(LOAD, '@', STACK_REG);
-    add_instr(STORE, ' ', REG_RETURN_ADR);
-
-    /* On recharge la valeur de retour puis on jump */
-    add_instr(LOAD, ' ', REG_RETURN_VALUE);
-    push();
-    add_instr(JUMP, '@', REG_RETURN_ADR);
-
+    /* On remet le bon contexte */
     strcpy(c_context, old_context);
 }
 
@@ -868,6 +953,8 @@ void codegen_func_decla(ast *t)
  * │   Début pile relatif   │
  * │   fonction appelante   │
  * ├────────────────────────┤
+ * │CPY_TMP_REG_REL_STK_CPY │
+ * ├────────────────────────┤
  * │                        │
  * │      pile fonction     │
  * │        appelante       │
@@ -888,6 +975,15 @@ void codegen_func_call(ast *t)
     func_call_node node = t->func_call;
 
     /*
+     * Pour gérer les appels de fonctions imbriqués (du style foo(bar(1), 2)).
+     * Ce registre est utilisé pour stocker le sommet de la pile temporairement
+     * (avant l'empilage des paramètres) afin qu'il devienne le début de pile
+     * relatif de la fonction appelée.
+     */
+    add_instr(LOAD, ' ', TMP_REG_REL_STK_CPY);
+    push();
+
+    /*
      * On empile le début relatif de la pile actuel pour le récupérer lorsque
      * l'on reviendra de la fonction appelée
      */
@@ -902,18 +998,17 @@ void codegen_func_call(ast *t)
      * utilisé + bas pour empiler les paramètres.
      */
     add_instr(LOAD, ' ', STACK_REG);
-    add_instr(STORE, ' ', TMP_REG_4);
+    add_instr(STORE, ' ', TMP_REG_REL_STK_CPY);
 
 
     /*
      * On empile l'adresse de retour.
-     * -7 pour retirer les 7 dernières instructions (qui sont celles exécutées)
+     * -10 pour retirer les 10 dernières instructions (qui sont celles exécutées)
      * après la fonction appelée).
-     * -6 pour ajouter le décalage des 5 premières instructions (dont celle-ci)
+     * -9 pour ajouter le décalage des 9 premières instructions (dont celle-ci)
      */
-    add_instr(LOAD, '#', nb_instr + t->codelen - 7 - 6 + 1);
-    add_instr(STORE, '@', STACK_REG);
-    add_instr(DEC, ' ', STACK_REG);
+    add_instr(LOAD, '#', nb_instr + t->codelen - 10 - 9 + 1);
+    push();
 
     /*
      * On empile les paramètres (on a fait en sorte de faire l'analyse
@@ -930,7 +1025,7 @@ void codegen_func_call(ast *t)
     }
 
     /* On met à jour le début relatif de la pile maintenant */
-    add_instr(LOAD, ' ', TMP_REG_4);
+    add_instr(LOAD, ' ', TMP_REG_REL_STK_CPY);
     add_instr(STORE, ' ', STACK_REL_START);
 
 
@@ -953,6 +1048,14 @@ void codegen_func_call(ast *t)
     pop();
     add_instr(STORE, ' ', STACK_REL_START);
 
+    /*
+     * On récupère la valeur initiale de TMP_REG_REL_STK_CPY pour la remettre 
+     * dans le bon état, au cas où cet appel de fonction était un paramètre d'un 
+     * autre appel de fonction.
+     */
+    pop();
+    add_instr(STORE, ' ', TMP_REG_REL_STK_CPY);
+
     /* Et on remet enfin la valeur de retour dans l'ACC */
     add_instr(LOAD, ' ', TMP_REG_SWP);
 }
@@ -969,4 +1072,130 @@ void codegen_return(ast *t)
      */
     if (node.expr != NULL) codegen(node.expr);
     else add_instr(LOAD, '#', 0);
+
+    if (strcmp(c_context, "PROGRAMME") == 0)
+    {
+        add_instr(STOP, ' ', 0);
+        return;
+    }
+
+    /* On stocke le contenu de la valeur de retour */
+    add_instr(STORE, ' ', REG_RETURN_VALUE);
+
+    /*
+     * On dépile jusqu'à atteindre le point de départ pour récupérer
+     * l'adresse de retour.
+     */
+    int jumb_back = nb_instr;
+    add_instr(LOAD, ' ', STACK_REL_START);
+    add_instr(SUB, ' ', STACK_REG);
+    add_instr(JUMZ, ' ', nb_instr + 3);
+    add_instr(INC, ' ', STACK_REG);
+    add_instr(JUMP, ' ', jumb_back);
+
+    /* La pile pointe mtn sur l'adresse de retour */
+    add_instr(LOAD, '@', STACK_REG);
+    add_instr(STORE, ' ', REG_RETURN_ADR);
+
+    /* On recharge la valeur de retour puis on jump */
+    add_instr(LOAD, ' ', REG_RETURN_VALUE);
+    push();
+    add_instr(JUMP, '@', REG_RETURN_ADR);
+}
+
+
+
+void codegen_arr_access(ast *t)
+{
+    array_access_node node = t->arr_access;
+
+    codegen(node.ind_expr);
+
+    symbol *tmp = get_symbol(table, c_context, node.id->id.name);
+
+    /*
+     * Si le tableau est dans le tas, tab[x] est la valeur située à l'adresse
+     * de tab + x.
+     * Si dans la pile, c'est la valeur située à l'adresse de tab - x.
+     * 
+     * Si c'est un pointeur il faut charger le contenu de la variable dans l'ACC
+     * et ensuite calculer le décalage.
+     */
+    if (tmp->type == array)
+    {
+        if (tmp->mem_zone == 's')
+        {
+            add_instr(STORE, ' ', TMP_REG_ACC_SWP);
+            add_instr(LOAD, ' ', STACK_REL_START);
+            add_instr(SUB, '#', tmp->adr);
+            add_instr(ADD, ' ', TMP_REG_ACC_SWP);
+        }
+        else add_instr(ADD, '#', tmp->adr);
+    }
+    else
+    {
+        add_instr(STORE, ' ', TMP_REG_ACC_SWP);
+        if (tmp->mem_zone == 's')
+        {
+            add_instr(LOAD, ' ', STACK_REL_START);
+            add_instr(SUB, '#', tmp->adr);
+            add_instr(LOAD, '@', 0);
+            add_instr(ADD, ' ', TMP_REG_ACC_SWP);
+        }
+        else
+        {
+            add_instr(LOAD, '#', tmp->adr);
+            add_instr(ADD, ' ', TMP_REG_ACC_SWP);
+        }
+    }
+
+
+    /* L'ACC contient maintenant la bonne adresse */
+    if (node.affect_expr == NULL) add_instr(LOAD, '@', 0);
+    else
+    {
+        push();
+        codegen(node.affect_expr);
+        add_instr(STORE, ' ', TMP_REG_ACC_SWP);
+        pop();
+        add_instr(STORE, ' ', TMP_REG_SWP);
+        add_instr(LOAD, ' ', TMP_REG_ACC_SWP);
+        add_instr(STORE, '@', TMP_REG_SWP);
+    }
+}
+
+
+
+
+void codegen_alloc(ast *t)
+{
+    alloc_node node = t->alloc;
+    symbol *tmp = get_symbol(table, c_context, node.id->id.name);
+
+    /* On stocke l'adresse du tas dans le pointeur */
+    if (tmp->mem_zone == 's')
+    {
+        add_instr(LOAD, ' ', STACK_REL_START);
+        add_instr(SUB, '#', tmp->adr);
+        add_instr(STORE, ' ', TMP_REG_STK_ADR);
+
+        add_instr(LOAD, ' ', HEAP_REG);
+        add_instr(STORE, '@', TMP_REG_STK_ADR);
+    }
+    else
+    {
+        add_instr(LOAD, ' ', HEAP_REG);
+        add_instr(STORE, '@', tmp->adr);
+    }
+
+    /* On génère l'expression donnant la taille à allouer */
+    codegen(node.expr);
+
+    /* Si <= 0: "segfault" -> on quitte */
+    add_instr(JUMG, ' ', nb_instr + 2);
+    add_instr(STOP, ' ', 0);
+
+    /* Sinon on augmente la taille du tas */
+    add_instr(ADD, ' ', HEAP_REG);
+    add_instr(STORE, ' ', HEAP_REG);
 }

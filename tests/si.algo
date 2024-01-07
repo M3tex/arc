@@ -3,7 +3,7 @@ VAR i <- 10
 PROGRAMME()
 DEBUT
     // Test de la structure SI ALORS SINON
-    SI i = 0 ALORS 
+    SI i <= 10 ET VRAI ALORS 
         i <- 1
     SINON
         i <- 0

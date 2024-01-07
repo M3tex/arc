@@ -2,12 +2,9 @@
 #define _SYMBOL_TABLE_HEADER
 
 
-#include "ast.h"
+
 #include <stdio.h>
-
-
-/* Les types disponibles */
-typedef enum {integer, pointer, array, func} type_symb;
+#include "ast.h"
 
 
 /*
@@ -19,20 +16,21 @@ typedef enum {integer, pointer, array, func} type_symb;
  * mem_zone: 'h' si stocké dans le tas, 's' si dans la pile.
  * next: le symbole suivant dans le contexte
  * is_used: 1 si le symbole est utilisé, 0 sinon (pour warnings)
- * is_modified: pour les optimisations
+ * is_modified: prévu pour les optimisations (pas faites)
  * is_init: pour les erreurs
+ * is_checked: pour ne pas afficher les erreurs plusieurs fois
  */
 typedef struct _symbol {
     char id[ID_MAX_SIZE];
     type_symb type;
     int size;
     int adr;
-    int has_return;
     char mem_zone;
     struct _symbol *next;
     int is_used;
     int is_modified;
     int is_init;
+    int is_checked;             // Pour le 2ème parcourt de l'analyse sémantique 
 } symbol;
 
 

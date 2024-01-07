@@ -1,0 +1,82 @@
+/*
+ * Programme réunissant à peu près toutes les constructions possibles, en dehors 
+ * des variables globales.
+ *
+ * Tris rapide.
+ * La bande d'entrée doit contenir la taille du tableau puis les éléments du
+ * tableau.
+ */
+
+PROTO reculer(@tab, x, @j)
+PROTO avancer(@tab, x, @i)
+PROTO echanger(@tab, i, j)
+PROTO partitionner(@tab, p, r)
+
+ALGO tri_rapide(@tab, p, r)
+VAR q
+DEBUT
+    SI p < r ALORS
+        q <- partitionner(tab, p, r)
+        tri_rapide(tab, p, q)
+        tri_rapide(tab, q + 1, r)
+    FSI
+FIN
+
+
+ALGO reculer(@tab, x, @j)
+DEBUT
+    FAIRE
+        *j <- *j - 1
+    TQ tab[*j] > x
+FIN
+
+
+ALGO avancer(@tab, x, @i)
+DEBUT
+    FAIRE
+        *i <- *i + 1
+    TQ tab[*i] < x
+FIN
+
+
+ALGO partitionner(@tab, p, r)
+VAR i <- p, j <- r, x <- tab[p]
+DEBUT
+    TQ tab[j] > x FAIRE
+        j <- j - 1
+    FTQ
+
+    TQ i < j FAIRE
+        echanger(tab, i, j)
+        reculer(tab, x, @j)
+        avancer(tab, x, @i)
+    FTQ
+
+    RETOURNER j
+FIN
+
+
+ALGO echanger(@tab, i, j)
+VAR tmp
+DEBUT
+    tmp <- tab[i]
+    tab[i] <- tab[j]
+    tab[j] <- tmp
+FIN
+
+
+PROGRAMME()
+VAR @tab, n, i
+DEBUT
+    n <- LIRE()
+    ALLOUER(tab, n)
+    POUR i DANS 0...n FAIRE
+        tab[i] <- LIRE()
+    FPOUR
+
+    tri_rapide(tab, 0, n - 1)
+
+    POUR i DANS 0...n FAIRE
+		ECRIRE(tab[i])
+	FPOUR
+FIN

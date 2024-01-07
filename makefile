@@ -20,7 +20,7 @@ OBJS := $(patsubst $(SRC)/%.c, $(BUILD)/%.o, $(C_FILES))
 
 arc: $(OBJS)
 	gcc $(C_FLAGS) $^ -o $@ $(C_LIBS)
-	cp arc $(BIN_PATH)
+	# cp arc $(BIN_PATH)
 
 
 # Un fichier objet dépend de sa source mais également des headers.

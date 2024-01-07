@@ -1,0 +1,21 @@
+/* Pour echanger et copie_tab */
+$ INCLURE utilitaires.algo
+
+
+/* La bande doit contenir la taille du tableau puis les éléments du tableau */
+PROGRAMME()
+VAR @tab, n, i, @cpy
+DEBUT
+	n <- LIRE()
+	ALLOUER(tab, n)
+	POUR i DANS 0...n FAIRE
+		tab[i] <- LIRE()
+	FPOUR
+
+	echanger(tab, 0, n - 1)
+	cpy <- copie_tab(tab, n)
+
+    POUR i DANS 0...n FAIRE
+		ECRIRE(cpy[i])
+	FPOUR
+FIN
